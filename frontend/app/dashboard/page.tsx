@@ -55,12 +55,7 @@ export default function DashboardPage() {
             <FileText size={18} /> My Blogs
           </Link>
 
-          <Link
-            href="/dashboard/community"
-            className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors duration-300"
-          >
-            <Users size={18} /> Community
-          </Link>
+        
 
           {user?.role === "admin" && (
             <>
