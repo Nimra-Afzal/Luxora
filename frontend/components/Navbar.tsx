@@ -20,6 +20,15 @@ export default function Navbar() {
 
         {/* Links */}
         <div className="flex items-center space-x-6">
+          {/* 🔥 Home link */}
+          <Link
+            href="/"
+            className="relative group text-gray-700 dark:text-gray-200 font-medium transition-colors duration-300 hover:text-blue-600 dark:hover:text-pink-400"
+          >
+            Home
+            <span className="absolute left-0 -bottom-1 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-pink-500 transition-all duration-300 group-hover:w-full"></span>
+          </Link>
+
           <Link
             href="/about"
             className="relative group text-gray-700 dark:text-gray-200 font-medium transition-colors duration-300 hover:text-blue-600 dark:hover:text-pink-400"
