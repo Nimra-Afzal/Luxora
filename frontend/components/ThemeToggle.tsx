@@ -30,7 +30,7 @@ export default function ThemeToggle() {
       </button>
 
       {/* Dropdown styles change with theme */}
-      <select
+      {/* <select
         value={mode}
         onChange={(e) => handleSelect(e.target.value as ThemeMode)}
         className={`border border-black rounded-md px-2 py-1 
@@ -38,7 +38,7 @@ export default function ThemeToggle() {
       >
         <option value="light">Light</option>
         <option value="dark">Dark</option>
-      </select>
+      </select> */}
     </div>
   )
 }

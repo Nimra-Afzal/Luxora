@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Providers from "./providers";
+import { Toaster } from "@/components/ui/toaster";
+
 import ThemeWatcher from "@/components/ThemeWatcher";
 import Navbar from "@/components/Navbar";  
 import Footer from "@/components/Footer";  
@@ -20,11 +22,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <ThemeWatcher />
           <div className="flex flex-col min-h-screen">
             <Navbar /> 
+            
+
             {/* ✅ children will always inherit the theme */}
             <main className="flex-grow">{children}</main>
             <Footer /> 
           </div>
+          <Toaster />
         </Providers>
+           
+
       </body>
     </html>
   );
