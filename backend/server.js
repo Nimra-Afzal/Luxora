@@ -1,8 +1,11 @@
+import dotenv from "dotenv";
 import express from "express";
 import cors from "cors";
 import morgan from "morgan";
-import dotenv from "dotenv";
+
 import mongoose from "mongoose";
+dotenv.config();
+// import "./config/cloudinary.js";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -11,8 +14,10 @@ import blogRoutes from "./routes/blogRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
+import reviewRoutes from "./routes/reviewRoutes.js";
 
-dotenv.config();
+
+
 const app = express();
 
 // Middleware
@@ -42,6 +47,8 @@ app.use("/api/v1/blogs", blogRoutes);
 app.use("/api/v1/products", productRoutes);
 app.use("/api/v1/categories", categoryRoutes);
 app.use("/api/v1", uploadRoutes);
+app.use("/api/v1/reviews", reviewRoutes);
+
 
 // Global error handler
 app.use((err, req, res, next) => {
