@@ -13,8 +13,13 @@ import authRoutes from "./routes/authRoutes.js";
 import blogRoutes from "./routes/blogRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
-import uploadRoutes from "./routes/uploadRoutes.js";
+// import uploadRoutes from "./routes/uploadRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
+import cartRoutes from "./routes/cartRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
+
+
+
 
 
 
@@ -43,11 +48,16 @@ app.get("/", (req, res) => res.send("Hello from backend!"));
 
 // Mount routes
 app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/blogs", blogRoutes);
 app.use("/api/v1/products", productRoutes);
 app.use("/api/v1/categories", categoryRoutes);
-app.use("/api/v1", uploadRoutes);
+// app.use("/api/v1", uploadRoutes);
 app.use("/api/v1/reviews", reviewRoutes);
+app.use("/api/v1/cart", cartRoutes);
+
+
+
 
 
 // Global error handler

@@ -40,19 +40,40 @@ export const signup = createAsyncThunk(
 // -----------------------------
 // LOGIN THUNK
 // -----------------------------
+// export const login = createAsyncThunk(
+//   "auth/login",
+//   async (formData: { email: string; password: string }, thunkAPI) => {
+//     try {
+//       const res = await axios.post("/auth/login", formData);
+
+//       localStorage.setItem("token", res.data.token);
+//       localStorage.setItem("user", JSON.stringify(res.data.user));
+
+//       return res.data;
+//     } catch (err: any) {
+//       return thunkAPI.rejectWithValue(
+//         err.response?.data?.message || "Login failed"
+//       );
+//     }
+//   }
+// );
+
+// LOGIN THUNK
 export const login = createAsyncThunk(
   "auth/login",
   async (formData: { email: string; password: string }, thunkAPI) => {
     try {
       const res = await axios.post("/auth/login", formData);
 
-      localStorage.setItem("token", res.data.token);
+      // ✅ CORRECT KEYS
+      localStorage.setItem("token", res.data.accessToken);
+      localStorage.setItem("refreshToken", res.data.refreshToken);
       localStorage.setItem("user", JSON.stringify(res.data.user));
 
       return res.data;
     } catch (err: any) {
       return thunkAPI.rejectWithValue(
-        err.response?.data?.message || "Login failed"
+        err.response?.data?.error || "Login failed"
       );
     }
   }
@@ -114,9 +135,14 @@ const authSlice = createSlice({
         state.loading = true;
         state.error = null;
       })
+      // .addCase(login.fulfilled, (state, action) => {
+      //   state.loading = false;
+      //   state.token = action.payload.token;
+      //   state.user = action.payload.user;
+      //   state.isAuthenticated = true;
       .addCase(login.fulfilled, (state, action) => {
         state.loading = false;
-        state.token = action.payload.token;
+        state.token = action.payload.accessToken; // ✅
         state.user = action.payload.user;
         state.isAuthenticated = true;
       })

@@ -1,141 +1,61 @@
-import Product from "../models/product.js";
-import Category from "../models/category.js";
-import slugify from "slugify";
 import cloudinary from "../config/cloudinary.js";
+import {
+  getPublicProductsService,
+  getProductBySlugService,
+  getAdminProductsService,
+  createProductService,
+  updateProductService,
+  deleteProductService,
+  reduceStockService,
+  getLowStockProductsService,
+  getOutOfStockProductsService,
+  getRelatedProductsByIdService,
+  getRelatedProductsBySlugService,
+  getProductsByParentCategoryService,
+} from "../services/productService.js";
 
-/* =====================================================
-   PUBLIC CONTROLLERS (CUSTOMERS)
-===================================================== */
-const LOW_STOCK_THRESHOLD = 5;
+/* ================= PUBLIC ================= */
 
-function isLowStock(stock) {
-  return stock <= LOW_STOCK_THRESHOLD;
-}
-
-// Get all ACTIVE products with search & filters
 export async function getProductsPublic(req, res) {
   try {
-    const {
-      search,
-      category,
-      minPrice,
-      maxPrice,
-    } = req.query;
-
-    let filter = { status: "active" };
-
-    // 🔍 Search by product name
-    if (search) {
-      filter.name = { $regex: search, $options: "i" };
-    }
-
-    // 🗂️ Filter by category slug
-    if (category) {
-      const categoryDoc = await Category.findOne({
-        slug: category.toLowerCase(),
-      });
-      if (!categoryDoc) {
-        return res.json({ products: [] });
-      }
-      filter.category = categoryDoc._id;
-    }
-
-    // 💰 Price range filter
-    if (minPrice || maxPrice) {
-      filter.price = {};
-      if (minPrice) filter.price.$gte = Number(minPrice);
-      if (maxPrice) filter.price.$lte = Number(maxPrice);
-    }
-
-    const products = await Product.find(filter)
-      .populate("category", "name slug parent")
-      .sort({ createdAt: -1 });
-
+    const products = await getPublicProductsService(req.query);
     res.json({ products });
-  } catch (err) {
-    console.error("❌ Product filter error:", err);
+  } catch {
     res.status(500).json({ error: "Failed to fetch products" });
   }
 }
 
-// Get single ACTIVE product by SLUG
 export async function getProductBySlug(req, res) {
   try {
-    const { slug } = req.params;
-
-    const product = await Product.findOne({
-      slug,
-      status: "active",
-    }).populate("category", "name slug parent");
-
-    if (!product) {
-      return res.status(404).json({ error: "Product not found" });
-    }
-
+    const product = await getProductBySlugService(req.params.slug);
+    if (!product) return res.status(404).json({ error: "Product not found" });
     res.json({ product });
-  } catch (err) {
-    console.error("❌ Failed to fetch product by slug:", err);
+  } catch {
     res.status(500).json({ error: "Failed to fetch product" });
   }
 }
 
-/* =====================================================
-   ADMIN CONTROLLERS
-===================================================== */
-
-// Admin: get all products (active + inactive)
-export async function getProductsAdmin(req, res) {
+export async function getProductsByParentCategory(req, res) {
   try {
-    const products = await Product.find()
-      .populate("category", "name slug parent")
-      .sort({ createdAt: -1 });
-
+    const products = await getProductsByParentCategoryService(req.params.slug);
     res.json({ products });
-  } catch (err) {
-    console.error("❌ Failed to fetch products (admin):", err);
-    res.status(500).json({ error: "Failed to fetch products (admin)" });
+  } catch {
+    res.status(500).json({ error: "Failed to fetch products" });
   }
 }
 
-// Admin: create product
+/* ================= ADMIN ================= */
+
+export async function getProductsAdmin(req, res) {
+  const products = await getAdminProductsService();
+  res.json({ products });
+}
+
 export async function createProduct(req, res) {
   try {
-    const {
-      name,
-      description,
-      price,
-      category,
-      stock,
-      sku,
-      barcode,
-      status,
-      metaTitle,
-      metaKeywords,
-    } = req.body;
+    const images = [];
 
-    if (!name || !price || !category) {
-      return res.status(400).json({
-        error: "Name, price and category are required",
-      });
-    }
-
-    const categoryDoc = await Category.findById(category);
-    if (!categoryDoc) {
-      return res.status(400).json({ error: "Invalid category" });
-    }
-
-    const slug = slugify(name, { lower: true, strict: true });
-
-    const existing = await Product.findOne({ slug });
-    if (existing) {
-      return res.status(400).json({ error: "Product already exists" });
-    }
-
-    // Upload images to Cloudinary
-    let images = [];
-    let primaryImage = "";
-
-    if (req.files && req.files.length > 0) {
+    if (req.files?.length) {
       for (const file of req.files) {
         const result = await cloudinary.uploader.upload(
           `data:${file.mimetype};base64,${file.buffer.toString("base64")}`,
@@ -143,248 +63,140 @@ export async function createProduct(req, res) {
         );
         images.push(result.secure_url);
       }
-      primaryImage = images[0];
     }
 
-    const product = new Product({
-      name,
-      slug,
-      description: description || "",
-      price: Number(price),
-      category,
-      stock: Number(stock) || 0,
-      sku: sku || "",
-      barcode: barcode || "",
+    const product = await createProductService({
+      ...req.body,
       images,
-      primaryImage,
-      status: status || "active",
-      metaTitle: metaTitle || "",
-      metaKeywords: metaKeywords
-        ? metaKeywords.split(",").map((k) => k.trim())
+      metaKeywords: req.body.metaKeywords
+        ? req.body.metaKeywords.split(",").map(k => k.trim())
         : [],
     });
 
-    await product.save();
-
     res.status(201).json({ product });
   } catch (err) {
-    console.error("❌ Create product error:", err);
-    res.status(500).json({ error: "Failed to create product" });
+    res.status(400).json({ error: err.message });
   }
 }
 
-// Admin: update product
+// export async function updateProduct(req, res) {
+//   try {
+//     const images = [];
+
+//     if (req.files?.length) {
+//       for (const file of req.files) {
+//         const result = await cloudinary.uploader.upload(
+//           `data:${file.mimetype};base64,${file.buffer.toString("base64")}`,
+//           { folder: "products" }
+//         );
+//         images.push(result.secure_url);
+//       }
+//     }
+
+//     const product = await updateProductService(
+//       req.params.id,
+//       req.body,
+//       images
+//     );
+
+//     res.json({ product });
+//   } catch (err) {
+//     res.status(400).json({ error: err.message });
+//   }
+// }
+
 export async function updateProduct(req, res) {
   try {
-    const { id } = req.params;
-    const {
-      name,
-      description,
-      price,
-      category,
-      stock,
-      sku,
-      barcode,
-      status,
-      metaTitle,
-      metaKeywords,
-    } = req.body;
+    const images = [];
 
-    const product = await Product.findById(id);
-    if (!product) {
-      return res.status(404).json({ error: "Product not found" });
+    /* ---------------- REMOVE EXISTING IMAGE ---------------- */
+    // coming from frontend as string "true"
+    if (req.body.removeImage === "true") {
+      req.body.primaryImage = null;
+      req.body.images = [];
     }
 
-    if (name && name !== product.name) {
-      product.name = name;
-      product.slug = slugify(name, { lower: true, strict: true });
-    }
-
-    product.description = description ?? product.description;
-    product.price = price !== undefined ? Number(price) : product.price;
-    product.category = category ?? product.category;
-    product.stock = stock !== undefined ? Number(stock) : product.stock;
-    product.sku = sku ?? product.sku;
-    product.barcode = barcode ?? product.barcode;
-    product.status = status ?? product.status;
-    product.metaTitle = metaTitle ?? product.metaTitle;
-    product.metaKeywords = metaKeywords
-      ? metaKeywords.split(",").map((k) => k.trim())
-      : product.metaKeywords;
-
-    // Upload new images (if any)
-    if (req.files && req.files.length > 0) {
+    /* ---------------- UPLOAD NEW IMAGES ---------------- */
+    if (req.files?.length) {
       for (const file of req.files) {
         const result = await cloudinary.uploader.upload(
           `data:${file.mimetype};base64,${file.buffer.toString("base64")}`,
           { folder: "products" }
         );
-        product.images.push(result.secure_url);
-      }
-
-      if (!product.primaryImage) {
-        product.primaryImage = product.images[0];
+        images.push(result.secure_url);
       }
     }
 
-    await product.save();
-
-    const populated = await product.populate(
-      "category",
-      "name slug parent"
+    const product = await updateProductService(
+      req.params.id,
+      req.body,
+      images
     );
 
-    res.json({ product: populated });
+    res.json({ product });
   } catch (err) {
-    console.error("❌ Error updating product:", err);
-    res.status(500).json({ error: "Failed to update product" });
+    res.status(400).json({ error: err.message });
   }
 }
 
-// Admin: delete product
 export async function deleteProduct(req, res) {
   try {
-    const { id } = req.params;
-    const product = await Product.findByIdAndDelete(id);
-
-    if (!product) {
-      return res.status(404).json({ error: "Product not found" });
-    }
-
-    // (Optional later: delete images from Cloudinary using public_id)
-
+    await deleteProductService(req.params.id);
     res.json({ message: "Product deleted" });
   } catch (err) {
-    console.error("❌ Error deleting product:", err);
-    res.status(500).json({ error: "Failed to delete product" });
+    res.status(404).json({ error: err.message });
   }
 }
-
 
 export async function reduceProductStock(req, res) {
   try {
-    const { id } = req.params;
-    const { quantity } = req.body;
-
-    if (!quantity || quantity <= 0) {
-      return res.status(400).json({ error: "Invalid quantity" });
-    }
-
-    const product = await Product.findById(id);
-    if (!product) {
-      return res.status(404).json({ error: "Product not found" });
-    }
-
-    if (product.stock < quantity) {
-      return res.status(400).json({ error: "Insufficient stock" });
-    }
-
-    product.stock -= quantity;
-    await product.save();
-
-    const lowStock = isLowStock(product.stock);
+    const result = await reduceStockService(
+      req.params.id,
+      Number(req.body.quantity)
+    );
 
     res.json({
-      message: "Stock reduced successfully",
-      stock: product.stock,
-      lowStock,
-      warning: lowStock
-        ? "⚠️ Low stock alert"
-        : null,
+      message: "Stock reduced",
+      ...result,
+      warning: result.lowStock ? "⚠️ Low stock alert" : null,
     });
   } catch (err) {
-    console.error("❌ Reduce stock error:", err);
-    res.status(500).json({ error: "Failed to reduce stock" });
+    res.status(400).json({ error: err.message });
   }
 }
 
 export async function getLowStockProducts(req, res) {
-  try {
-    const products = await Product.find({
-      stock: { $lte: LOW_STOCK_THRESHOLD },
-      status: "active",
-    }).populate("category", "name slug");
-
-    res.json({
-      count: products.length,
-      products,
-    });
-  } catch (err) {
-    console.error("❌ Low stock fetch error:", err);
-    res.status(500).json({ error: "Failed to fetch low stock products" });
-  }
-}
-
-// GET RELATED PRODUCTS
-export async function getRelatedProducts(req, res) {
-  try {
-    const { id } = req.params;
-
-    const product = await Product.findById(id);
-    if (!product) {
-      return res.status(404).json({ error: "Product not found" });
-    }
-
-    const relatedProducts = await Product.find({
-      _id: { $ne: product._id },
-      category: product.category,
-      status: "active",
-    })
-      .limit(4)
-      .populate("category", "name slug");
-
-    res.json({ products: relatedProducts });
-  } catch (err) {
-    console.error("❌ Related products error:", err);
-    res.status(500).json({ error: "Failed to fetch related products" });
-  }
-}
-
-// GET RELATED PRODUCTS BY SLUG (Customer-friendly)
-export async function getRelatedProductsBySlug(req, res) {
-  try {
-    const { slug } = req.params;
-
-    const product = await Product.findOne({
-      slug,
-      status: "active",
-    });
-
-    if (!product) {
-      return res.status(404).json({ error: "Product not found" });
-    }
-
-    const relatedProducts = await Product.find({
-      _id: { $ne: product._id },
-      category: product.category,
-      status: "active",
-    })
-      .limit(4)
-      .populate("category", "name slug");
-
-    res.json({ products: relatedProducts });
-  } catch (err) {
-    console.error("❌ Related products error:", err);
-    res.status(500).json({ error: "Failed to fetch related products" });
-  }
+  const products = await getLowStockProductsService();
+  res.json({ count: products.length, products });
 }
 
 export async function getOutOfStockProducts(req, res) {
-  try {
-    const products = await Product.find({
-      stock: 0,
-      status: "active",
-    }).populate("category", "name slug");
+  const products = await getOutOfStockProductsService();
+  res.json({ count: products.length, products });
+}
 
-    res.json({
-      count: products.length,
-      products,
-    });
-  } catch (err) {
-    console.error("❌ Out of stock fetch error:", err);
-    res.status(500).json({ error: "Failed to fetch out of stock products" });
+export async function getRelatedProducts(req, res) {
+  try {
+    const products = await getRelatedProductsByIdService(req.params.id);
+    res.json({ products });
+  } catch {
+    res.status(404).json({ error: "Product not found" });
   }
 }
+
+export async function getRelatedProductsBySlug(req, res) {
+  try {
+    const products = await getRelatedProductsBySlugService(req.params.slug);
+    res.json({ products });
+  } catch {
+    res.status(404).json({ error: "Product not found" });
+  }
+}
+
+
+
+
+
 
 
 

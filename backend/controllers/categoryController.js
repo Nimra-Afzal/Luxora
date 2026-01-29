@@ -1,70 +1,78 @@
-import Category from "../models/category.js";
-import slugify from "slugify";
+import * as categoryService from "../services/categoryService.js";
 
 /**
- * Build category tree (recursive)
- */
-function buildCategoryTree(categories, parentId = null) {
-  return categories
-    .filter(cat => String(cat.parent) === String(parentId))
-    .sort((a, b) => a.displayOrder - b.displayOrder)
-    .map(cat => ({
-      _id: cat._id,
-      name: cat.name,
-      slug: cat.slug,
-      description: cat.description,
-      image: cat.image,
-      status: cat.status,
-      children: buildCategoryTree(categories, cat._id),
-    }));
-}
-
-/**
- * Public: Get category tree (ACTIVE only)
+ * PUBLIC: Category tree
  */
 export async function getCategoryTreePublic(req, res) {
   try {
-    const categories = await Category.find({ status: "active" }).lean();
-    const tree = buildCategoryTree(categories, null);
+    const tree = await categoryService.getCategoryTree({ admin: false });
     res.json(tree);
   } catch (err) {
-    console.error("❌ Failed to fetch category tree:", err);
+    console.error(err);
     res.status(500).json({ error: "Failed to fetch category tree" });
   }
 }
 
 /**
- * Generate slug (parent-aware)
+ * ADMIN: Category tree
  */
-async function buildSlug(name, parentId) {
-  const base = slugify(name, { lower: true, strict: true });
-  if (!parentId) return base;
-
-  const parent = await Category.findById(parentId).select("slug");
-  return parent ? `${parent.slug}-${base}` : base;
+export async function getCategoryTreeAdmin(req, res) {
+  try {
+    const tree = await categoryService.getCategoryTree({ admin: true });
+    res.json(tree);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch category tree" });
+  }
 }
 
 /**
- * Admin: Create category
+ * PUBLIC: Flat categories
+ */
+export async function getCategoriesPublic(req, res) {
+  try {
+    const categories = await categoryService.getPublicCategories();
+    res.json(categories);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch categories" });
+  }
+}
+
+/**
+ * PUBLIC: Category by ID
+ */
+export async function getCategoryById(req, res) {
+  try {
+    const category = await categoryService.getCategoryById(req.params.id);
+    res.json({ category });
+  } catch (err) {
+    res
+      .status(err.status || 500)
+      .json({ error: err.message || "Failed to fetch category" });
+  }
+}
+
+/**
+ * PUBLIC: Category by slug
+ */
+export async function getCategoryBySlug(req, res) {
+  try {
+    const category = await categoryService.getCategoryBySlug(req.params.slug);
+    res.json({ category });
+  } catch (err) {
+    res
+      .status(err.status || 500)
+      .json({ error: err.message || "Failed to fetch category" });
+  }
+}
+
+/**
+ * ADMIN: Create category
  */
 export async function createCategory(req, res) {
   try {
-    const { name, parent, description, image, status, displayOrder } = req.body;
-    if (!name) return res.status(400).json({ error: "Name is required" });
-
-    const slug = await buildSlug(name, parent);
-
-    const category = new Category({
-      name,
-      slug,
-      parent: parent || null,
-      description,
-      image,
-      status,
-      displayOrder,
-    });
-
-    await category.save();
+    const category = await categoryService.createCategory(req.body);
     res.status(201).json({ category });
   } catch (err) {
     if (err.code === 11000) {
@@ -72,90 +80,22 @@ export async function createCategory(req, res) {
         error: "Category with this name already exists under the selected parent",
       });
     }
-    console.error("❌ Error creating category:", err);
-    res.status(500).json({ error: "Failed to create category" });
+
+    res
+      .status(err.status || 500)
+      .json({ error: err.message || "Failed to create category" });
   }
 }
 
 /**
- * Public: Get all ACTIVE categories (flat)
- */
-export async function getCategoriesPublic(req, res) {
-  try {
-    const categories = await Category.find({ status: "active" })
-      .select("name slug parent")
-      .lean();
-
-    res.json(categories);
-  } catch (err) {
-    console.error("❌ Failed to fetch categories (public):", err);
-    res.status(500).json({ error: "Failed to fetch categories" });
-  }
-}
-
-/**
- * Public: Get category by ID
- */
-export async function getCategoryById(req, res) {
-  try {
-    const { id } = req.params;
-
-    const category = await Category.findById(id).lean();
-    if (!category) return res.status(404).json({ error: "Category not found" });
-
-    res.json({ category });
-  } catch (err) {
-    console.error("❌ Failed to fetch category by id:", err);
-    res.status(500).json({ error: "Failed to fetch category" });
-  }
-}
-
-/**
- * Public: Get category by SLUG (STEP 3)
- */
-export async function getCategoryBySlug(req, res) {
-  try {
-    const { slug } = req.params;
-
-    const category = await Category.findOne({
-      slug,
-      status: "active",
-    }).lean();
-
-    if (!category) {
-      return res.status(404).json({ error: "Category not found" });
-    }
-
-    res.json({ category });
-  } catch (err) {
-    console.error("❌ Failed to fetch category by slug:", err);
-    res.status(500).json({ error: "Failed to fetch category" });
-  }
-}
-
-/**
- * Admin: Update category
+ * ADMIN: Update category
  */
 export async function updateCategory(req, res) {
   try {
-    const { id } = req.params;
-    const { name, parent, description, image, status, displayOrder } = req.body;
-
-    const category = await Category.findById(id);
-    if (!category) return res.status(404).json({ error: "Category not found" });
-
-    if (name) {
-      category.name = name;
-      category.slug = await buildSlug(name, parent || category.parent);
-    }
-
-    if (parent !== undefined) category.parent = parent || null;
-    if (description !== undefined) category.description = description;
-    if (image !== undefined) category.image = image;
-    if (status !== undefined) category.status = status;
-    if (displayOrder !== undefined) category.displayOrder = displayOrder;
-
-    await category.save();
+    const category = await categoryService.updateCategory(
+      req.params.id,
+      req.body
+    );
     res.json({ category });
   } catch (err) {
     if (err.code === 11000) {
@@ -163,67 +103,68 @@ export async function updateCategory(req, res) {
         error: "Category with this name already exists under the selected parent",
       });
     }
-    console.error("❌ Failed to update category:", err);
-    res.status(500).json({ error: "Failed to update category" });
+
+    res
+      .status(err.status || 500)
+      .json({ error: err.message || "Failed to update category" });
   }
 }
 
 /**
- * Admin: Delete category
+ * ADMIN: Delete category
  */
 export async function deleteCategory(req, res) {
   try {
-    const { id } = req.params;
-
-    const category = await Category.findByIdAndDelete(id);
-    if (!category) return res.status(404).json({ error: "Category not found" });
-
+    await categoryService.deleteCategory(req.params.id);
     res.json({ message: "Category deleted" });
   } catch (err) {
-    console.error("❌ Failed to delete category:", err);
-    res.status(500).json({ error: "Failed to delete category" });
+    res
+      .status(err.status || 500)
+      .json({ error: err.message || "Failed to delete category" });
   }
 }
 
-import Product from "../models/product.js";
-
 /**
- * Admin: Get categories with product count
+ * ADMIN: Categories with product count
  */
 export async function getCategoriesWithProductCount(req, res) {
   try {
-    const categories = await Category.find().lean();
-
-    const categoriesWithCount = await Promise.all(
-      categories.map(async (category) => {
-        const productCount = await Product.countDocuments({
-          category: category._id,
-        });
-
-        return {
-          ...category,
-          productCount,
-        };
-      })
-    );
-
-    res.json(categoriesWithCount);
+    const data = await categoryService.getCategoriesWithProductCount();
+    res.json(data);
   } catch (err) {
-    console.error("❌ Failed to fetch categories with product count:", err);
     res.status(500).json({ error: "Failed to fetch category statistics" });
   }
 }
+
 /**
- * Admin: Get full category tree (active + inactive)
+ * ADMIN: Get all categories (flat list)
  */
-export async function getCategoryTreeAdmin(req, res) {
+export async function getAllCategoriesAdmin(req, res) {
   try {
-    const categories = await Category.find().lean();
-    const tree = buildCategoryTree(categories, null);
-    res.json(tree);
+    const categories = await categoryService.getAllCategoriesAdmin();
+    res.json(categories);
   } catch (err) {
-    console.error("❌ Failed to fetch admin category tree:", err);
-    res.status(500).json({ error: "Failed to fetch category tree" });
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch categories (admin)" });
   }
 }
+
+
+/**
+ * PUBLIC: Category breadcrumb (by slug)
+ */
+export async function getCategoryBreadcrumb(req, res) {
+  try {
+    const breadcrumb = await categoryService.getCategoryBreadcrumb({
+      slug: req.params.slug,
+    });
+
+    res.json(breadcrumb);
+  } catch (err) {
+    res
+      .status(err.status || 500)
+      .json({ error: err.message || "Failed to generate breadcrumb" });
+  }
+}
+
 

@@ -4,8 +4,7 @@ import React, { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState, AppDispatch } from "@/redux/store";
-
-import { setUser } from "@/redux/features/authSlice";
+import { setUser, setUserFromStorage } from "@/redux/features/authSlice";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,8 +18,6 @@ export default function SettingsPage() {
   const { toast } = useToast();
   const { user } = useSelector((state: RootState) => state.auth);
 
-  console.log("🔄 Component Rendered — Toast Hook:", toast);
-
   const [form, setForm] = useState({
     username: "",
     email: "",
@@ -30,17 +27,24 @@ export default function SettingsPage() {
   });
 
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // Load profile
+  // 🔐 Restore auth state
   useEffect(() => {
+    dispatch(setUserFromStorage());
+  }, [dispatch]);
+
+  // 📡 Load profile
+  useEffect(() => {
+    if (!localStorage.getItem("token")) return;
+
     (async () => {
       try {
-        console.log("📡 Fetching /auth/me ...");
         const res = await api.get("/auth/me");
         const data = res.data.user;
-        console.log("📥 Loaded profile:", data);
 
         setForm({
           username: data.username || "",
@@ -50,75 +54,54 @@ export default function SettingsPage() {
           avatar: data.avatar || "",
         });
       } catch (err) {
-        console.error("❌ Failed to load profile", err);
+        toast({
+          title: "Unauthorized",
+          description: "Please login again.",
+          variant: "destructive",
+        });
       } finally {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [toast]);
 
-  // Avatar upload
+  // 📸 Upload avatar
   async function handleAvatarUpload() {
     if (!avatarFile) return form.avatar;
-
-    console.log("⬆ Uploading avatar file:", avatarFile);
 
     const formData = new FormData();
     formData.append("image", avatarFile);
 
-    try {
-      const res = await api.post("/upload", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      console.log("📸 Uploaded avatar URL:", res.data.url);
-      return res.data.url;
-    } catch (err) {
-      console.error("❌ Avatar upload failed", err);
-      return form.avatar;
-    }
+    const res = await api.post("/upload", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    return res.data.url;
   }
 
-  // Save Profile
+  // 💾 Save profile
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    console.log("💾 Save button clicked");
 
     try {
-      let avatarUrl = form.avatar;
+      const avatarUrl = avatarFile ? await handleAvatarUpload() : form.avatar;
 
-      if (avatarFile) {
-        avatarUrl = await handleAvatarUpload();
-      }
-
-      const payload = {
-        username: form.username,
-        email: form.email,
-        phone: form.phone,
-        address: form.address,
+      const res = await api.put("/auth/profile", {
+        ...form,
         avatar: avatarUrl,
-      };
-
-      console.log("📤 Sending profile update payload:", payload);
-
-      const res = await api.put("/auth/profile", payload);
-
-      console.log("✅ Profile updated successfully:", res.data.user);
+      });
 
       dispatch(setUser(res.data.user));
 
-      console.log("🔥 Calling toast() now...");
       toast({
         title: "Profile Updated 🎉",
-        description: "Your changes have been saved successfully.",
+        description: "Your changes were saved.",
       });
-      console.log("🔥 toast() executed");
-    } catch (err: any) {
-      console.log("❌ Error caught in save handler:", err.response?.data || err);
-
+    } catch {
       toast({
-        title: "Update Failed",
-        description: err.response?.data?.error || "Something went wrong.",
+        title: "Update failed",
+        description: "Something went wrong.",
         variant: "destructive",
       });
     } finally {
@@ -126,47 +109,73 @@ export default function SettingsPage() {
     }
   }
 
-  if (loading)
+  // 🔑 Change password
+  // 🔑 Change password
+async function handlePasswordChange(e: React.FormEvent) {
+  e.preventDefault();
+
+  try {
+    await api.put("/auth/change-password", {
+      oldPassword,
+      newPassword,
+    });
+
+    toast({
+      title: "Password changed",
+      description: "Please login again with your new password.",
+    });
+
+    // ✅ IMPORTANT: clear auth state
+    localStorage.clear();
+
+    // redirect to login
+    window.location.href = "/login";
+  } catch (err: any) {
+    toast({
+      title: "Password update failed",
+      description: err.response?.data?.error || "Something went wrong",
+      variant: "destructive",
+    });
+  }
+}
+
+
+  if (loading) {
     return <div className="p-10 text-center text-gray-500">Loading...</div>;
+  }
 
   return (
     <div className="max-w-3xl mx-auto mt-10">
-      <Card className="border border-gray-300 dark:border-gray-700">
-        <CardContent className="p-6">
-          <h1 className="text-2xl font-bold mb-6">Profile Settings</h1>
+      <Card>
+        <CardContent className="p-6 space-y-8">
+          <h1 className="text-2xl font-bold">Profile Settings</h1>
 
+          {/* PROFILE FORM */}
           <form onSubmit={handleSave} className="space-y-6">
-
-            {/* Avatar */}
             <div className="flex items-center gap-6">
-              <Avatar className="h-20 w-20 border">
+              <Avatar className="h-20 w-20">
                 {form.avatar ? (
                   <AvatarImage src={form.avatar} />
                 ) : (
                   <AvatarFallback>
-                    {form.username.charAt(0).toUpperCase()}
+                    {form.username?.charAt(0)?.toUpperCase() || "U"}
                   </AvatarFallback>
                 )}
               </Avatar>
 
-              <div className="flex-1">
-                <Label>Profile Picture</Label>
-                <Input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0] || null;
-                    console.log("📁 Selected avatar file:", file);
-                    if (file) {
-                      setAvatarFile(file);
-                      setForm({ ...form, avatar: URL.createObjectURL(file) });
-                    }
-                  }}
-                />
-              </div>
+              <Input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  if (file) {
+                    setAvatarFile(file);
+                    setForm({ ...form, avatar: URL.createObjectURL(file) });
+                  }
+                }}
+              />
             </div>
 
-            {/* Username */}
             <div>
               <Label>Username</Label>
               <Input
@@ -177,7 +186,6 @@ export default function SettingsPage() {
               />
             </div>
 
-            {/* Email */}
             <div>
               <Label>Email</Label>
               <Input
@@ -188,7 +196,6 @@ export default function SettingsPage() {
               />
             </div>
 
-            {/* Phone */}
             <div>
               <Label>Phone</Label>
               <Input
@@ -196,11 +203,9 @@ export default function SettingsPage() {
                 onChange={(e) =>
                   setForm({ ...form, phone: e.target.value })
                 }
-                placeholder="e.g. +92 300 1234567"
               />
             </div>
 
-            {/* Address */}
             <div>
               <Label>Address</Label>
               <Input
@@ -208,24 +213,35 @@ export default function SettingsPage() {
                 onChange={(e) =>
                   setForm({ ...form, address: e.target.value })
                 }
-                placeholder="Enter your address"
               />
             </div>
 
-            <div className="flex gap-4">
-              <Button disabled={saving} type="submit">
-                {saving ? "Saving..." : "Save Changes"}
-              </Button>
+            <Button disabled={saving}>
+              {saving ? "Saving..." : "Save Changes"}
+            </Button>
+          </form>
 
-              <Button
-                variant="secondary"
-                type="button"
-                onClick={() => window.history.back()}
-              >
-                Cancel
-              </Button>
-            </div>
+          <hr />
 
+          {/* PASSWORD FORM */}
+          <form onSubmit={handlePasswordChange} className="space-y-4">
+            <h2 className="font-semibold">Change Password</h2>
+
+            <Input
+              type="password"
+              placeholder="Old password"
+              value={oldPassword}
+              onChange={(e) => setOldPassword(e.target.value)}
+            />
+
+            <Input
+              type="password"
+              placeholder="New password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+            />
+
+            <Button>Change Password</Button>
           </form>
         </CardContent>
       </Card>

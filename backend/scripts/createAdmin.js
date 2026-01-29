@@ -1,10 +1,3 @@
-/**
- * Run once:
- * node scripts/createAdmin.js
- *
- * Make sure your server's .env exists with MONGO_URI
- */
-
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import path from "path";
