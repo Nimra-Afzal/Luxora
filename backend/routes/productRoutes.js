@@ -1,4 +1,5 @@
 import { Router } from "express";
+
 import {
   getProductsPublic,
   getProductsAdmin,
@@ -6,40 +7,55 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
+  reduceProductStock,
+  getLowStockProducts,
+  getOutOfStockProducts,
+  getRelatedProducts,
+  getRelatedProductsBySlug,
+  getProductsByParentCategory,
 } from "../controllers/productController.js";
 
 import { authMiddleware } from "../middlewares/authMiddleware.js";
 import { requireAdmin } from "../middlewares/requireAdmin.js";
 import { upload } from "../middlewares/upload.js";
-import { reduceProductStock } from "../controllers/productController.js";
-import { getLowStockProducts} from "../controllers/productController.js";
-import { getRelatedProducts} from "../controllers/productController.js";
-import { getRelatedProductsBySlug } from "../controllers/productController.js";
-import { getOutOfStockProducts } from "../controllers/productController.js";
 
 const router = Router();
 
-// -------- PUBLIC ROUTES --------
+/* =====================================================
+   PUBLIC ROUTES (ORDER MATTERS!)
+===================================================== */
 
-// Get all active products
+// 👉 Products by parent category (Women / Men / Kids)
+router.get("/parent/:slug", getProductsByParentCategory);
+
+// 👉 All active products (with filters/search)
 router.get("/public", getProductsPublic);
 
-// Get single active product by SLUG
+// 👉 Single product by slug
 router.get("/slug/:slug", getProductBySlug);
 
-// -------- ADMIN ROUTES --------
+// 👉 Related products (by slug)
+router.get("/slug/:slug/related", getRelatedProductsBySlug);
 
-// Get all products (admin)
+// 👉 Related products (by product ID)
+router.get("/:id/related", getRelatedProducts);
+
+/* =====================================================
+   ADMIN ROUTES
+===================================================== */
+
+// 👉 All products (admin)
 router.get("/admin", authMiddleware, requireAdmin, getProductsAdmin);
+
+// 👉 Low stock products
 router.get(
   "/admin/low-stock",
   authMiddleware,
   requireAdmin,
   getLowStockProducts
 );
-router.get("/:id/related", getRelatedProducts);
-// Related products (customer)
-router.get("/slug/:slug/related", getRelatedProductsBySlug);
+
+// 👉 Out of stock products
 router.get(
   "/admin/out-of-stock",
   authMiddleware,
@@ -47,43 +63,32 @@ router.get(
   getOutOfStockProducts
 );
 
+/* =====================================================
+   INVENTORY MANAGEMENT
+===================================================== */
 
-
-
-// -------- ADMIN PRODUCT ACTIONS --------
+// 👉 Reduce product stock
 router.post(
   "/:id/reduce-stock",
   authMiddleware,
   requireAdmin,
-  async (req, res) => {
-    try {
-      const { quantity } = req.body;
-
-      const product = await reduceProductStock(
-        req.params.id,
-        Number(quantity)
-      );
-
-      res.json({ product });
-    } catch (err) {
-      res.status(400).json({ error: err.message });
-    }
-  }
+  reduceProductStock
 );
 
-// Create product
-// router.post("/", authMiddleware, requireAdmin, createProduct);
+/* =====================================================
+   ADMIN PRODUCT CRUD
+===================================================== */
+
+// 👉 Create product
 router.post(
   "/",
   authMiddleware,
   requireAdmin,
-  upload.array("images", 5), // max 5 images
+  upload.array("images", 5),
   createProduct
 );
 
-
-// Update product
-// router.put("/:id", authMiddleware, requireAdmin, updateProduct);
+// 👉 Update product
 router.put(
   "/:id",
   authMiddleware,
@@ -92,8 +97,8 @@ router.put(
   updateProduct
 );
 
-
-// Delete product
+// 👉 Delete product
 router.delete("/:id", authMiddleware, requireAdmin, deleteProduct);
 
 export default router;
+

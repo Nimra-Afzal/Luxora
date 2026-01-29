@@ -4,6 +4,7 @@ import themeReducer from "./features/themeSlice";
 import blogReducer from "./features/blogSlice";
 import productReducer from "./features/productSlice";
 import categoryReducer from "./features/categorySlice";
+import cartReducer from "./features/cartSlice";
 
 export const store = configureStore({
   reducer: {
@@ -12,6 +13,7 @@ export const store = configureStore({
     blogs: blogReducer,
     products: productReducer,
     categories: categoryReducer,
+    cart: cartReducer,
   },
 });
 

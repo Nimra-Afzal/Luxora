@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Providers from "./providers";
-import { Toaster } from "@/components/ui/toaster";
+import { Toaster } from "react-hot-toast";
 
 import ThemeWatcher from "@/components/ThemeWatcher";
 import Navbar from "@/components/Navbar";  
 import Footer from "@/components/Footer";  
+// import CategoryNav from "@/components/CategoryNav";
 
 export const metadata: Metadata = {
   title: "Promptopia",
@@ -28,7 +29,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <main className="flex-grow">{children}</main>
             <Footer /> 
           </div>
-          <Toaster />
+          <Toaster position="top-right"/>
+          {/* <CategoryNav /> */}
         </Providers>
            
 
@@ -36,3 +38,4 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </html>
   );
 }
+

@@ -4,12 +4,15 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import api from "@/lib/api";
 
+import Breadcrumb from "@/components/Breadcrumb";
+import ProductCard from "@/components/ProductCard";
+import ProductCardSkeleton from "@/components/ProductCardSkeleton";
+
 interface Product {
   _id: string;
   name: string;
-  description: string;
   price: number;
-  image?: string | null;
+  primaryImage?: string;
   category: {
     name: string;
     slug: string;
@@ -17,57 +20,54 @@ interface Product {
 }
 
 export default function CategoryParentPage() {
-  const params = useParams();
-  const parentSlug = params.slug;
-
+  const { slug } = useParams<{ slug: string }>();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchProducts() {
       try {
-        setLoading(true);
-        const res = await api.get(`/products/parent/${parentSlug}`);
-        const data = res.data;
-        if (data.success) {
-          setProducts(data.products);
-        } else {
-          setProducts([]);
-        }
+        const res = await api.get(`/products/parent/${slug}`);
+        setProducts(res.data.products || []);
       } catch (err) {
-        console.error("Error fetching products:", err);
+        console.error(err);
         setProducts([]);
       } finally {
         setLoading(false);
       }
     }
 
-    fetchProducts();
-  }, [parentSlug]);
-
-  if (loading) return <p className="p-4">Loading products...</p>;
-  if (!products.length) return <p className="p-4">No products found in this category.</p>;
+    if (slug) {
+      fetchProducts();
+    }
+  }, [slug]);
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 p-4">
-      {products.map((product) => (
-        <div
-          key={product._id}
-          className="border rounded-lg p-4 shadow hover:shadow-md transition"
-        >
-          {product.image && (
-            <img
-              src={product.image}
-              alt={product.name}
-              className="w-full h-48 object-cover rounded"
-            />
-          )}
-          <h2 className="text-xl font-semibold mt-2">{product.name}</h2>
-          <p className="text-gray-600 mt-1">{product.description}</p>
-          <p className="font-bold mt-2">${product.price}</p>
-          <p className="text-sm text-gray-500 mt-1 italic">Category: {product.category.name}</p>
+    <div className="p-6">
+      {/* ✅ BREADCRUMB */}
+      <Breadcrumb slug={slug as string} />
+
+      {loading ? (
+        // 🔹 SHOW SKELETONS WHILE LOADING
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <ProductCardSkeleton key={i} />
+          ))}
         </div>
-      ))}
+      ) : products.length === 0 ? (
+        // 🔹 NO PRODUCTS
+        <p className="text-center text-gray-500 mt-6">
+          No products found in this category.
+        </p>
+      ) : (
+        // 🔹 PRODUCTS GRID
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-4">
+          {products.map((product) => (
+            <ProductCard key={product._id} product={product} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
+

@@ -3,117 +3,149 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
+import { useSelector } from "react-redux";
+import { RootState } from "@/redux/store";
+import { Button } from "@/components/ui/button";
+import AddProductDialog from "@/components/admin/AddProductDialog";
 
 interface Product {
   _id: string;
   name: string;
-  description: string;
   price: number;
-  image: string | null;
-  category: { _id: string; name: string };
+  stock: number;
+  status: "active" | "inactive";
+  category: {
+    _id: string;
+    name: string;
+    parent?: string | null;
+  };
+  primaryImage?: string;
 }
 
-export default function ProductsListPage() {
+export default function AdminProductsPage() {
   const router = useRouter();
+  const { user } = useSelector((state: RootState) => state.auth);
+
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [openDialog, setOpenDialog] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+
   useEffect(() => {
-    async function fetchProducts() {
-      try {
-        const res = await api.get("/products"); // admin route
-        // backend returns { products: [...] }
-        setProducts(res.data.products || []);
-      } catch (err) {
-        console.error("Error fetching products:", err);
-        alert("❌ Failed to load products");
-      } finally {
-        setLoading(false);
-      }
+    if (!user) return;
+    if (user.role !== "admin") router.replace("/dashboard");
+  }, [user, router]);
+
+  async function fetchProducts() {
+    try {
+      const res = await api.get("/products/admin");
+      setProducts(res.data.products);
+    } finally {
+      setLoading(false);
     }
+  }
+
+  useEffect(() => {
     fetchProducts();
   }, []);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this product?")) return;
+  async function handleDelete(id: string) {
+    if (!confirm("Delete this product?")) return;
+    await api.delete(`/products/${id}`);
+    setProducts((p) => p.filter((x) => x._id !== id));
+  }
 
-    try {
-      await api.delete(`/products/${id}`);
-      setProducts(products.filter((p) => p._id !== id));
-      alert("✅ Product deleted");
-    } catch (err) {
-      console.error("Error deleting product:", err);
-      alert("❌ Failed to delete product");
-    }
-  };
+  if (loading) return <div className="p-6">Loading products...</div>;
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Products</h1>
+    <div className="p-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Products</h1>
 
-      <button
-        onClick={() => router.push("/dashboard/products/create")}
-        className="mb-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-      >
-        + Add Product
-      </button>
+        <Button
+          onClick={() => {
+            setEditingProduct(null);
+            setOpenDialog(true);
+          }}
+        >
+          + Add Product
+        </Button>
+      </div>
 
-      {loading ? (
-        <p>Loading products...</p>
-      ) : products.length === 0 ? (
-        <p>No products found.</p>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {products.map((product) => (
-            <div
-              key={product._id}
-              className="border rounded-lg shadow p-4 flex flex-col"
-            >
-              {product.image ? (
-                <div className="w-full h-48 bg-gray-100 flex items-center justify-center rounded mb-4 overflow-hidden">
-                  <img
-                    src={
-                      product.image?.startsWith("http")
-                        ? product.image
-                        : `http://localhost:5000${product.image}`
-                    }
-                    alt={product.name}
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-              ) : (
-                <div className="w-full h-48 bg-gray-200 flex items-center justify-center rounded mb-4">
-                  No Image
-                </div>
-              )}
+      <div className="overflow-x-auto">
+        <table className="w-full border text-sm">
+          <thead className="bg-gray-100">
+            <tr>
+              <th className="p-2 border">Image</th>
+              <th className="p-2 border">Name</th>
+              <th className="p-2 border">Category</th>
+              <th className="p-2 border">Price</th>
+              <th className="p-2 border">Stock</th>
+              <th className="p-2 border">Status</th>
+              <th className="p-2 border">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {products.map((p) => (
+              <tr key={p._id} className="text-center">
+                <td className="border p-2">
+                  {p.primaryImage ? (
+                    <img
+                      src={p.primaryImage}
+                      className="h-12 w-12 mx-auto rounded object-cover"
+                    />
+                  ) : (
+                    "-"
+                  )}
+                </td>
+                <td className="border p-2">{p.name}</td>
+                <td className="border p-2">{p.category.name}</td>
+                <td className="border p-2">₹{p.price}</td>
+                <td className="border p-2">{p.stock}</td>
+                <td className="border p-2">
+                  <span
+                    className={`px-2 py-1 rounded text-xs ${
+                      p.status === "active"
+                        ? "bg-green-100 text-green-700"
+                        : "bg-gray-200 text-gray-600"
+                    }`}
+                  >
+                    {p.status}
+                  </span>
+                </td>
+                <td className="border p-2 space-x-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setEditingProduct(p);
+                      setOpenDialog(true);
+                    }}
+                  >
+                    Edit
+                  </Button>
 
-              <h2 className="text-lg font-semibold truncate">{product.name}</h2>
-              <p className="text-gray-600">${product.price.toFixed(2)}</p>
-              <p className="text-gray-500 truncate">
-                Category: {product.category?.name}
-              </p>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => handleDelete(p._id)}
+                  >
+                    Delete
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
-              <div className="mt-4 flex gap-2">
-                <button
-                  onClick={() =>
-                    router.push(`/dashboard/products/${product._id}/edit`)
-                  }
-                  className="flex-1 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-                >
-                  Edit
-                </button>
-
-                <button
-                  onClick={() => handleDelete(product._id)}
-                  className="flex-1 px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <AddProductDialog
+        open={openDialog}
+        setOpen={setOpenDialog}
+        product={editingProduct}
+        onSuccess={fetchProducts}
+      />
     </div>
   );
 }

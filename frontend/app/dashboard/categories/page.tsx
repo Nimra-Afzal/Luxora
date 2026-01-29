@@ -1,42 +1,49 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import api from "@/lib/api";
+import CategoryFormModal from "@/components/CategoryFormModal";
 
 interface Category {
   _id: string;
   name: string;
+  status?: string;
+  parent?: {
+    _id: string;
+    name: string;
+    slug?: string;
+  } | null;
 }
 
 export default function CategoriesListPage() {
-  const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch all categories
-  useEffect(() => {
-    async function fetchCategories() {
-      try {
-        const res = await api.get("/categories"); // admin route
-        setCategories(res.data);
-      } catch (err) {
-        console.error("Error fetching categories:", err);
-        alert("❌ Failed to load categories");
-      } finally {
-        setLoading(false);
-      }
+  const [openModal, setOpenModal] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+
+  async function fetchCategories() {
+    try {
+      const res = await api.get("/categories/admin");
+      setCategories(res.data);
+    } catch (err) {
+      console.error("Error fetching categories:", err);
+      alert("❌ Failed to load categories");
+    } finally {
+      setLoading(false);
     }
+  }
+
+  useEffect(() => {
     fetchCategories();
   }, []);
 
-  // Delete category
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this category?")) return;
 
     try {
       await api.delete(`/categories/${id}`);
-      setCategories(categories.filter((c) => c._id !== id));
+      setCategories((prev) => prev.filter((c) => c._id !== id));
       alert("✅ Category deleted");
     } catch (err) {
       console.error("Error deleting category:", err);
@@ -46,47 +53,104 @@ export default function CategoriesListPage() {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Categories</h1>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">Categories</h1>
 
-      <button
-        onClick={() => router.push("/dashboard/categories/create")}
-        className="mb-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-      >
-        + Add Category
-      </button>
+        <button
+          onClick={() => {
+            setEditingCategory(null); // ➕ CREATE
+            setOpenModal(true);
+          }}
+          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+        >
+          + Add Category
+        </button>
+      </div>
 
+      {/* Content */}
       {loading ? (
         <p>Loading categories...</p>
       ) : categories.length === 0 ? (
         <p>No categories found.</p>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {categories.map((category) => (
-            <div
-              key={category._id}
-              className="border rounded-lg shadow p-4 flex flex-col justify-between"
-            >
-              <h2 className="text-lg font-semibold truncate">{category.name}</h2>
+        <div className="overflow-x-auto">
+          <table className="w-full border border-gray-200 rounded-lg">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="p-3 text-left">Name</th>
+                <th className="p-3 text-left">Type</th>
+                <th className="p-3 text-left">Parent</th>
+                <th className="p-3 text-left">Status</th>
+                <th className="p-3 text-right">Actions</th>
+              </tr>
+            </thead>
 
-              <div className="mt-4 flex gap-2">
-                <button
-                  onClick={() => router.push(`/dashboard/categories/${category._id}/edit`)}
-                  className="flex-1 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-                >
-                  Edit
-                </button>
+            <tbody>
+              {categories.map((category) => {
+                const isParent = !category.parent;
 
-                <button
-                  onClick={() => handleDelete(category._id)}
-                  className="flex-1 px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))}
+                return (
+                  <tr
+                    key={category._id}
+                    className="border-t hover:bg-gray-50"
+                  >
+                    <td className="p-3 font-medium">{category.name}</td>
+
+                    <td className="p-3">
+                      {isParent ? "Parent" : "Subcategory"}
+                    </td>
+
+                    <td className="p-3">
+                      {isParent ? "—" : category.parent!.name}
+                    </td>
+
+                    <td className="p-3">
+                      {category.status || "active"}
+                    </td>
+
+                    <td className="p-3 text-right space-x-2">
+                      <button
+                        onClick={() => {
+                          setEditingCategory(category); // ✏️ EDIT
+                          setOpenModal(true);
+                        }}
+                        className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                      >
+                        Edit
+                      </button>
+
+                      <button
+                        onClick={() => handleDelete(category._id)}
+                        className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
+
+      {/* Modal */}
+      <CategoryFormModal
+        open={openModal}
+        category={editingCategory}
+        onClose={() => {
+          setOpenModal(false);
+          setEditingCategory(null);
+        }}
+        onSuccess={async () => {
+          setOpenModal(false);
+          setEditingCategory(null);
+          setLoading(true);
+          await fetchCategories();
+        }}
+      />
     </div>
   );
 }
+
