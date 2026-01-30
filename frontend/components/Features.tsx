@@ -1,162 +1,156 @@
-"use client"
+"use client";
 
-import { useSelector } from "react-redux"
-import type { RootState } from "@/redux/store"
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { ArrowRight, Layers } from "lucide-react";
+import api from "@/lib/api";
+
+interface Category {
+  _id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  subcategories?: Category[];
+}
+
+// Category color schemes
+const categoryColors = [
+  { bg: "from-blue-500 to-blue-600", light: "bg-blue-100 dark:bg-blue-900/30", text: "text-blue-600 dark:text-blue-400" },
+  { bg: "from-purple-500 to-purple-600", light: "bg-purple-100 dark:bg-purple-900/30", text: "text-purple-600 dark:text-purple-400" },
+  { bg: "from-pink-500 to-pink-600", light: "bg-pink-100 dark:bg-pink-900/30", text: "text-pink-600 dark:text-pink-400" },
+  { bg: "from-orange-500 to-orange-600", light: "bg-orange-100 dark:bg-orange-900/30", text: "text-orange-600 dark:text-orange-400" },
+  { bg: "from-green-500 to-green-600", light: "bg-green-100 dark:bg-green-900/30", text: "text-green-600 dark:text-green-400" },
+  { bg: "from-teal-500 to-teal-600", light: "bg-teal-100 dark:bg-teal-900/30", text: "text-teal-600 dark:text-teal-400" },
+];
 
 export default function Features() {
-  const theme = useSelector((state: RootState) => state.theme.mode)
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const res = await api.get("/categories/public/tree");
+        setCategories(res.data || []);
+      } catch (error) {
+        console.error("Failed to fetch categories");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   return (
-    <section
-      className={`py-16 transition-colors duration-300 border-b ${
-        theme === "dark"
-          ? "bg-gray-800 border-gray-700"
-          : "bg-slate-100 border-gray-200"
-      }`}
-    >
-      <div className="max-w-6xl mx-auto px-4">
-        <h2
-          className={`text-4xl font-bold text-center mb-12 ${
-            theme === "dark" ? "text-white" : "text-gray-900"
-          }`}
-        >
-          Why Shop With Us?
-        </h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Feature 1 */}
-          <div
-            className={`p-8 rounded-xl shadow-lg text-center transition-all duration-300 hover:shadow-xl hover:scale-105 ${
-              theme === "dark"
-                ? "bg-gray-700 border border-gray-600"
-                : "bg-white border border-gray-200"
-            }`}
-          >
-            <div
-              className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${
-                theme === "dark" ? "bg-pink-600" : "bg-pink-100"
-              }`}
-            >
-              <svg
-                className={`w-8 h-8 ${theme === "dark" ? "text-white" : "text-pink-600"}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2 9m13-9l2 9m-5-4a2 2 0 11-4 0 2 2 0 014 0z"
-                />
-              </svg>
-            </div>
-            <h3
-              className={`text-xl font-semibold mb-3 ${
-                theme === "dark" ? "text-white" : "text-gray-900"
-              }`}
-            >
-              Wide Variety
-            </h3>
-            <p
-              className={`${
-                theme === "dark" ? "text-gray-300" : "text-gray-600"
-              }`}
-            >
-              From fashion to lifestyle, explore thousands of products tailored
-              to your needs.
-            </p>
-          </div>
-
-          {/* Feature 2 */}
-          <div
-            className={`p-8 rounded-xl shadow-lg text-center transition-all duration-300 hover:shadow-xl hover:scale-105 ${
-              theme === "dark"
-                ? "bg-gray-700 border border-gray-600"
-                : "bg-white border border-gray-200"
-            }`}
-          >
-            <div
-              className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${
-                theme === "dark" ? "bg-green-600" : "bg-green-100"
-              }`}
-            >
-              <svg
-                className={`w-8 h-8 ${theme === "dark" ? "text-white" : "text-green-600"}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 8c1.657 0 3-1.343 3-3S13.657 2 12 2 9 3.343 9 5s1.343 3 3 3zm0 2c-4.418 0-8 1.79-8 4v3h16v-3c0-2.21-3.582-4-8-4z"
-                />
-              </svg>
-            </div>
-            <h3
-              className={`text-xl font-semibold mb-3 ${
-                theme === "dark" ? "text-white" : "text-gray-900"
-              }`}
-            >
-              Secure Shopping
-            </h3>
-            <p
-              className={`${
-                theme === "dark" ? "text-gray-300" : "text-gray-600"
-              }`}
-            >
-              Shop with confidence using safe payments and reliable checkout
-              options.
-            </p>
-          </div>
-
-          {/* Feature 3 */}
-          <div
-            className={`p-8 rounded-xl shadow-lg text-center transition-all duration-300 hover:shadow-xl hover:scale-105 ${
-              theme === "dark"
-                ? "bg-gray-700 border border-gray-600"
-                : "bg-white border border-gray-200"
-            }`}
-          >
-            <div
-              className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${
-                theme === "dark" ? "bg-blue-600" : "bg-blue-100"
-              }`}
-            >
-              <svg
-                className={`w-8 h-8 ${theme === "dark" ? "text-white" : "text-blue-600"}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M3 10h2l1 9h12l1-9h2M5 6h14l-1 4H6L5 6z"
-                />
-              </svg>
-            </div>
-            <h3
-              className={`text-xl font-semibold mb-3 ${
-                theme === "dark" ? "text-white" : "text-gray-900"
-              }`}
-            >
-              Fast Delivery
-            </h3>
-            <p
-              className={`${
-                theme === "dark" ? "text-gray-300" : "text-gray-600"
-              }`}
-            >
-              Enjoy quick, reliable, and hassle-free delivery right to your
-              doorstep.
-            </p>
-          </div>
+    <section className="py-16 bg-gray-50 dark:bg-gray-900">
+      <div className="max-w-7xl mx-auto px-4">
+        {/* Section Header */}
+        <div className="text-center mb-12">
+          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-sm font-medium mb-4">
+            <Layers size={16} />
+            Browse by Category
+          </span>
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
+            Shop by Categories
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+            Explore our wide range of products organized by categories. Find exactly what you&apos;re looking for with ease.
+          </p>
         </div>
+
+        {/* Categories Grid */}
+        {loading ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {[...Array(6)].map((_, i) => (
+              <div
+                key={i}
+                className="aspect-square rounded-2xl bg-gray-200 dark:bg-gray-800 animate-pulse"
+              />
+            ))}
+          </div>
+        ) : categories.length > 0 ? (
+          <>
+            {/* Main Categories */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+              {categories.slice(0, 6).map((category, index) => {
+                const colorScheme = categoryColors[index % categoryColors.length];
+                return (
+                  <Link
+                    key={category._id}
+                    href={`/products?category=${category.slug}`}
+                    className="group relative aspect-square rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+                  >
+                    {/* Background Gradient */}
+                    <div className={`absolute inset-0 bg-gradient-to-br ${colorScheme.bg} opacity-90 group-hover:opacity-100 transition-opacity`} />
+
+                    {/* Content */}
+                    <div className="relative h-full flex flex-col items-center justify-center p-4 text-white">
+                      <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                        <span className="text-2xl font-bold">{category.name.charAt(0)}</span>
+                      </div>
+                      <h3 className="font-semibold text-center text-sm md:text-base">{category.name}</h3>
+                      {category.subcategories && category.subcategories.length > 0 && (
+                        <p className="text-xs text-white/80 mt-1">
+                          {category.subcategories.length} subcategories
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Hover Arrow */}
+                    <div className="absolute bottom-3 right-3 w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <ArrowRight size={16} className="text-white" />
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+
+            {/* Subcategories Preview */}
+            {categories.some(cat => cat.subcategories && cat.subcategories.length > 0) && (
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                  Popular Subcategories
+                </h3>
+                <div className="flex flex-wrap gap-3">
+                  {categories
+                    .flatMap(cat => cat.subcategories || [])
+                    .slice(0, 12)
+                    .map((subcat, index) => {
+                      const colorScheme = categoryColors[index % categoryColors.length];
+                      return (
+                        <Link
+                          key={subcat._id}
+                          href={`/products?category=${subcat.slug}`}
+                          className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${colorScheme.light} ${colorScheme.text} hover:opacity-80 transition-opacity text-sm font-medium`}
+                        >
+                          {subcat.name}
+                        </Link>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+
+            {/* View All Link */}
+            <div className="text-center mt-8">
+              <Link
+                href="/products"
+                className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-400 font-medium hover:underline"
+              >
+                View All Products
+                <ArrowRight size={18} />
+              </Link>
+            </div>
+          </>
+        ) : (
+          <div className="text-center py-12">
+            <div className="w-16 h-16 mx-auto rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center mb-4">
+              <Layers size={32} className="text-gray-400" />
+            </div>
+            <p className="text-gray-500 dark:text-gray-400">No categories available at the moment</p>
+          </div>
+        )}
       </div>
     </section>
-  )
+  );
 }

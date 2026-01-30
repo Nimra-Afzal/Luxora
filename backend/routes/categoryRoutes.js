@@ -8,21 +8,27 @@ import {
   getCategoryTreePublic,
   getCategoryBySlug,
   getCategoriesWithProductCount,
-   getCategoryTreeAdmin,
-   getCategoryBreadcrumb,
-    getAllCategoriesAdmin,
+  getCategoryTreeAdmin,
+  getCategoryBreadcrumb,
+  getAllCategoriesAdmin,
+  getParentCategoriesPublic,
+  getSubcategoriesPublic,
+  getParentCategoriesAdmin,
+  getSubcategoriesAdmin,
+  getCategoryStats,
 } from "../controllers/categoryController.js";
-
 
 import { authMiddleware } from "../middlewares/authMiddleware.js";
 import { requireAdmin } from "../middlewares/requireAdmin.js";
 
 const router = Router();
 
-//**
-//  * PUBLIC ROUTES (specific → generic)
-//  */
+/**
+ * PUBLIC ROUTES (specific → generic)
+ */
 router.get("/public/tree", getCategoryTreePublic);
+router.get("/public/parents", getParentCategoriesPublic);
+router.get("/public/subcategories/:parentId", getSubcategoriesPublic);
 router.get("/public", getCategoriesPublic);
 router.get("/slug/:slug", getCategoryBySlug);
 router.get("/breadcrumb/:slug", getCategoryBreadcrumb);
@@ -47,6 +53,27 @@ router.get(
 );
 
 router.get(
+  "/admin/parents",
+  authMiddleware,
+  requireAdmin,
+  getParentCategoriesAdmin
+);
+
+router.get(
+  "/admin/subcategories/:parentId",
+  authMiddleware,
+  requireAdmin,
+  getSubcategoriesAdmin
+);
+
+router.get(
+  "/admin/stats",
+  authMiddleware,
+  requireAdmin,
+  getCategoryStats
+);
+
+router.get(
   "/admin",
   authMiddleware,
   requireAdmin,
@@ -57,7 +84,7 @@ router.put("/:id", authMiddleware, requireAdmin, updateCategory);
 router.delete("/:id", authMiddleware, requireAdmin, deleteCategory);
 
 /**
- * 🚨 GENERIC ROUTE — MUST BE LAST
+ * GENERIC ROUTE — MUST BE LAST
  */
 router.get("/:id", getCategoryById);
 

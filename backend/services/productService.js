@@ -115,12 +115,30 @@ export async function updateProductService(id, updates, newImages = []) {
     metaKeywords: updates.metaKeywords ?? product.metaKeywords,
   });
 
-  if (newImages.length) {
-    product.images.push(...newImages);
-    if (!product.primaryImage) {
-      product.primaryImage = product.images[0];
+  // Handle selective image removal
+  if (updates.imagesToRemove) {
+    try {
+      const imagesToRemove = JSON.parse(updates.imagesToRemove);
+      if (Array.isArray(imagesToRemove) && imagesToRemove.length > 0) {
+        product.images = product.images.filter(img => !imagesToRemove.includes(img));
+      }
+    } catch (e) {
+      // Invalid JSON, ignore
     }
   }
+
+  // Handle legacy removeImage flag (removes all images)
+  if (updates.removeImage === "true") {
+    product.images = [];
+  }
+
+  // Handle new images - add to existing
+  if (newImages.length) {
+    product.images.push(...newImages);
+  }
+
+  // Update primary image
+  product.primaryImage = product.images[0] || null;
 
   await product.save();
   return product.populate("category", "name slug parent");

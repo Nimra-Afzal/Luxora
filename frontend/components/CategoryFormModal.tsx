@@ -1,13 +1,42 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import api from "@/lib/api";
+import { useDispatch, useSelector } from "react-redux";
+import { AppDispatch, RootState } from "@/redux/store";
+import {
+  createCategory,
+  updateCategory,
+  getAdminParentCategories,
+} from "@/redux/features/categorySlice";
+import { useToast } from "@/components/ui/use-toast";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 
 interface Category {
   _id: string;
   name: string;
+  description?: string;
+  status?: string;
+  displayOrder?: number;
   parent?: {
     _id: string;
+    name: string;
   } | null;
 }
 
@@ -15,170 +44,222 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  category?: Category | null; // ✅ NEW (for edit)
+  category?: Category | null;
 }
 
 export default function CategoryFormModal({
   open,
   onClose,
   onSuccess,
-  category, // ✅ NEW
+  category,
 }: Props) {
+  const dispatch = useDispatch<AppDispatch>();
+  const { toast } = useToast();
+  const { parents, parentsLoading } = useSelector(
+    (state: RootState) => state.categories
+  );
+
   const [name, setName] = useState("");
-  const [parent, setParent] = useState<string>("");
-  const [allParents, setAllParents] = useState<Category[]>([]);
+  const [description, setDescription] = useState("");
+  const [parentId, setParentId] = useState<string>("none");
+  const [status, setStatus] = useState<"active" | "inactive">("active");
+  const [displayOrder, setDisplayOrder] = useState<number>(0);
   const [loading, setLoading] = useState(false);
 
-  /**
-   * 🔹 Fetch parent categories (ONLY real parents)
-   */
+  // Fetch parent categories when modal opens
   useEffect(() => {
-    if (!open) return;
-
-    async function fetchParents() {
-      try {
-        const res = await api.get("/categories/admin");
-
-        console.log("ADMIN CATEGORIES:", res.data);
-
-        const parentCategories = res.data.filter(
-          (c: Category) => c.parent === null
-        );
-
-        setAllParents(parentCategories);
-      } catch (err) {
-        console.error("Failed to load parent categories", err);
-      }
+    if (open) {
+      dispatch(getAdminParentCategories());
     }
+  }, [open, dispatch]);
 
-    fetchParents();
-  }, [open]);
-
-  /**
-   * 🔹 Prefill form in EDIT mode
-   */
+  // Prefill form in edit mode
   useEffect(() => {
     if (!open) return;
 
     if (category) {
       setName(category.name);
-      setParent(category.parent?._id || "");
+      setDescription(category.description || "");
+      setParentId(category.parent?._id || "none");
+      setStatus((category.status as "active" | "inactive") || "active");
+      setDisplayOrder(category.displayOrder || 0);
     } else {
+      // Reset form for create mode
       setName("");
-      setParent("");
+      setDescription("");
+      setParentId("none");
+      setStatus("active");
+      setDisplayOrder(0);
     }
   }, [open, category]);
 
-  /**
-   * 🔹 Create / Update submit
-   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!name.trim()) {
-      alert("Category name is required");
+      toast({
+        title: "Error",
+        description: "Category name is required",
+        variant: "destructive",
+      });
       return;
     }
 
+    setLoading(true);
+
     try {
-      setLoading(true);
+      const formData = {
+        name: name.trim(),
+        description: description.trim(),
+        parent: parentId === "none" ? null : parentId,
+        status,
+        displayOrder,
+      };
 
       if (category) {
-        // ✏️ EDIT
-        await api.put(`/categories/${category._id}`, {
-          name,
-          parent: parent || null,
+        await dispatch(
+          updateCategory({ id: category._id, data: formData })
+        ).unwrap();
+        toast({
+          title: "Success",
+          description: "Category updated successfully",
         });
       } else {
-        // ➕ CREATE
-        await api.post("/categories", {
-          name,
-          parent: parent || null,
+        await dispatch(createCategory(formData)).unwrap();
+        toast({
+          title: "Success",
+          description: "Category created successfully",
         });
       }
 
       onSuccess();
       onClose();
     } catch (err: any) {
-      alert(err.response?.data?.error || "Failed to save category");
+      toast({
+        title: "Error",
+        description: err || "Failed to save category",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  if (!open) return null;
+  // Filter out the current category from parent options (can't be its own parent)
+  const availableParents = parents.filter((p) => p._id !== category?._id);
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <div className="bg-white w-full max-w-md rounded-lg shadow-lg p-6">
-        <h2 className="text-xl font-bold mb-4">
-          {category ? "Edit Category" : "Add Category"}
-        </h2>
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>
+            {category ? "Edit Category" : "Add Category"}
+          </DialogTitle>
+        </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
           {/* Category Name */}
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Category Name
-            </label>
-            <input
-              type="text"
+          <div className="space-y-2">
+            <Label htmlFor="name">Category Name *</Label>
+            <Input
+              id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full border rounded px-3 py-2"
-              placeholder="e.g. Shoes"
+              placeholder="e.g. Shoes, Electronics"
+              required
+            />
+          </div>
+
+          {/* Description */}
+          <div className="space-y-2">
+            <Label htmlFor="description">Description</Label>
+            <Textarea
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Brief description of this category"
+              rows={3}
             />
           </div>
 
           {/* Parent Category */}
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Parent Category (optional)
-            </label>
-
-            <select
-              value={parent}
-              onChange={(e) => setParent(e.target.value)}
-              className="w-full border rounded px-3 py-2"
+          <div className="space-y-2">
+            <Label>Category Type</Label>
+            <Select
+              value={parentId}
+              onValueChange={setParentId}
+              disabled={parentsLoading}
             >
-              <option value="">— No parent (Parent category)</option>
-
-              {allParents.map((p) => (
-                <option key={p._id} value={p._id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-
-            <p className="text-xs text-gray-500 mt-1">
-              Leave empty to create a parent category
+              <SelectTrigger>
+                <SelectValue placeholder="Select category type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">
+                  Parent Category (Top Level)
+                </SelectItem>
+                {availableParents.map((p) => (
+                  <SelectItem key={p._id} value={p._id}>
+                    Subcategory of: {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-gray-500">
+              {parentId && parentId !== "none"
+                ? "This will be a subcategory under the selected parent"
+                : "This will be a top-level parent category"}
             </p>
+          </div>
+
+          {/* Display Order */}
+          <div className="space-y-2">
+            <Label htmlFor="displayOrder">Display Order</Label>
+            <Input
+              id="displayOrder"
+              type="number"
+              min={0}
+              value={displayOrder}
+              onChange={(e) => setDisplayOrder(Number(e.target.value))}
+              placeholder="0"
+            />
+            <p className="text-xs text-gray-500">
+              Lower numbers appear first in the list
+            </p>
+          </div>
+
+          {/* Status Toggle */}
+          <div className="flex items-center justify-between rounded-lg border p-4">
+            <div className="space-y-0.5">
+              <Label>Active Status</Label>
+              <p className="text-sm text-gray-500">
+                {status === "active"
+                  ? "Category is visible to customers"
+                  : "Category is hidden from customers"}
+              </p>
+            </div>
+            <Switch
+              checked={status === "active"}
+              onCheckedChange={(checked) =>
+                setStatus(checked ? "active" : "inactive")
+              }
+            />
           </div>
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 border rounded"
-            >
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancel
-            </button>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
-            >
+            </Button>
+            <Button type="submit" disabled={loading}>
               {loading
                 ? "Saving..."
                 : category
-                ? "Update"
-                : "Save"}
-            </button>
+                ? "Update Category"
+                : "Create Category"}
+            </Button>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -1,19 +1,58 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { AppDispatch, RootState } from "@/redux/store";
+import {
+  getParentCategories,
+  getSubcategories,
+  clearSubcategories,
+} from "@/redux/features/categorySlice";
 import api from "@/lib/api";
+import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Upload, X } from "lucide-react";
 
-interface Category {
+interface Product {
   _id: string;
   name: string;
-  parent: string | null;
+  description?: string;
+  price: number;
+  stock: number;
+  status: "active" | "inactive";
+  category: {
+    _id: string;
+    name: string;
+    parent?: {
+      _id: string;
+      name: string;
+    } | null;
+  };
+  images?: string[];
+  primaryImage?: string;
+}
+
+interface Props {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  product: Product | null;
+  onSuccess: () => void;
 }
 
 export default function AddProductDialog({
@@ -21,65 +60,93 @@ export default function AddProductDialog({
   setOpen,
   product,
   onSuccess,
-}: {
-  open: boolean;
-  setOpen: (v: boolean) => void;
-  product: any | null;
-  onSuccess: () => void;
-}) {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [parent, setParent] = useState("");
-  const [subcategory, setSubcategory] = useState("");
+}: Props) {
+  const dispatch = useDispatch<AppDispatch>();
+  const { toast } = useToast();
 
+  const { parents, subcategories, parentsLoading, subcategoriesLoading } =
+    useSelector((state: RootState) => state.categories);
+
+  const [parentId, setParentId] = useState("");
+  const [subcategoryId, setSubcategoryId] = useState("");
   const [status, setStatus] = useState<"active" | "inactive">("active");
-  const [stock, setStock] = useState<number | "">("");
+  const [stock, setStock] = useState<number | "">(0);
 
-  /* ---------------- IMAGE STATES ---------------- */
+  // Image states
   const [images, setImages] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
-  const [existingImage, setExistingImage] = useState<string | null>(null);
-  const [removeExistingImage, setRemoveExistingImage] = useState(false);
+  const [existingImages, setExistingImages] = useState<string[]>([]);
+  const [imagesToRemove, setImagesToRemove] = useState<string[]>([]);
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  /* ---------------- LOAD CATEGORIES ---------------- */
+  // Fetch parent categories on mount
   useEffect(() => {
-    api.get("/categories/public").then((res) => setCategories(res.data));
-  }, []);
+    if (open) {
+      dispatch(getParentCategories());
+    }
+  }, [open, dispatch]);
 
-  /* ---------------- PREFILL (EDIT MODE) ---------------- */
+  // Fetch subcategories when parent changes
+  useEffect(() => {
+    if (parentId) {
+      dispatch(getSubcategories(parentId));
+    } else {
+      dispatch(clearSubcategories());
+    }
+  }, [parentId, dispatch]);
+
+  // Prefill form in edit mode
   useEffect(() => {
     if (!open) return;
 
     if (product) {
-      setParent(product.category?.parent || "");
-      setSubcategory(product.category?._id || "");
-      setStock(product.stock ?? "");
+      // Get parent ID from category's parent
+      const productParentId = product.category?.parent?._id || "";
+      setParentId(productParentId);
+      setSubcategoryId(product.category?._id || "");
+      setStock(product.stock ?? 0);
       setStatus(product.stock === 0 ? "inactive" : product.status);
-      setExistingImage(product.primaryImage || null);
-      setRemoveExistingImage(false);
+      // Load all existing images
+      setExistingImages(product.images || []);
+      setImagesToRemove([]);
       setImages([]);
       setPreviews([]);
-    } else {
-      setParent("");
-      setSubcategory("");
-      setStock("");
-      setStatus("active");
-      setExistingImage(null);
-      setRemoveExistingImage(false);
-      setImages([]);
-      setPreviews([]);
-    }
-  }, [open, product]);
 
-  /* ---------------- AUTO STATUS LOGIC ---------------- */
+      // Fetch subcategories for the parent
+      if (productParentId) {
+        dispatch(getSubcategories(productParentId));
+      }
+    } else {
+      // Reset form for create mode
+      setParentId("");
+      setSubcategoryId("");
+      setStock(0);
+      setStatus("active");
+      setExistingImages([]);
+      setImagesToRemove([]);
+      setImages([]);
+      setPreviews([]);
+      dispatch(clearSubcategories());
+    }
+  }, [open, product, dispatch]);
+
+  // Auto-update status when stock becomes 0
   useEffect(() => {
-    if (stock === 0) setStatus("inactive");
+    if (stock === 0) {
+      setStatus("inactive");
+    }
   }, [stock]);
 
-  /* ---------------- IMAGE HANDLER ---------------- */
-  function handleImages(files: FileList | null) {
+  // Clear subcategory when parent changes
+  useEffect(() => {
+    if (!product || product.category?.parent?._id !== parentId) {
+      setSubcategoryId("");
+    }
+  }, [parentId, product]);
+
+  const handleImages = (files: FileList | null) => {
     if (!files) return;
 
     const selected = Array.from(files);
@@ -88,19 +155,23 @@ export default function AddProductDialog({
       ...prev,
       ...selected.map((f) => URL.createObjectURL(f)),
     ]);
-  }
+  };
 
-  function removeNewImage(index: number) {
+  const removeNewImage = (index: number) => {
     setImages((prev) => prev.filter((_, i) => i !== index));
     setPreviews((prev) => prev.filter((_, i) => i !== index));
-  }
+  };
 
-  /* ---------------- SUBMIT ---------------- */
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
 
-    if (!subcategory) {
+    if (!parentId) {
+      setError("Please select a parent category");
+      return;
+    }
+
+    if (!subcategoryId) {
       setError("Please select a subcategory");
       return;
     }
@@ -108,177 +179,285 @@ export default function AddProductDialog({
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    formData.append("category", subcategory);
+    formData.append("category", subcategoryId);
     formData.append("status", stock === 0 ? "inactive" : status);
     formData.append("stock", String(stock === "" ? 0 : stock));
 
-    if (removeExistingImage) {
-      formData.append("removeImage", "true");
+    // Send list of images to remove
+    if (imagesToRemove.length > 0) {
+      formData.append("imagesToRemove", JSON.stringify(imagesToRemove));
     }
 
+    // Add new images
     images.forEach((img) => formData.append("images", img));
 
     try {
       if (product) {
         await api.put(`/products/${product._id}`, formData);
+        toast({
+          title: "Success",
+          description: "Product updated successfully",
+        });
       } else {
         await api.post("/products", formData);
+        toast({
+          title: "Success",
+          description: "Product created successfully",
+        });
       }
 
       setOpen(false);
       onSuccess();
-    } catch {
-      setError("Failed to save product");
+    } catch (err: any) {
+      setError(err.response?.data?.error || "Failed to save product");
     } finally {
       setLoading(false);
     }
-  }
-
-  const parents = categories.filter((c) => !c.parent);
-  const subs = categories.filter((c) => c.parent === parent);
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {product ? "Edit Product" : "Add Product"}
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
           {error && (
-            <div className="text-sm text-red-600 bg-red-50 p-2 rounded">
+            <div className="text-sm text-red-600 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg">
               {error}
             </div>
           )}
 
-          <input
-            name="name"
-            defaultValue={product?.name || ""}
-            placeholder="Product name"
-            required
-            className="w-full border p-2 rounded"
-          />
-
-          <textarea
-            name="description"
-            defaultValue={product?.description || ""}
-            placeholder="Description"
-            className="w-full border p-2 rounded"
-          />
-
-          <input
-            name="price"
-            type="number"
-            defaultValue={product?.price || ""}
-            placeholder="Price"
-            required
-            className="w-full border p-2 rounded"
-          />
-
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Stock Quantity
-            </label>
-            <input
-              type="number"
-              min={0}
-              value={stock}
-              onChange={(e) =>
-                setStock(e.target.value === "" ? "" : Number(e.target.value))
-              }
-              className="w-full border p-2 rounded"
+          {/* Product Name */}
+          <div className="space-y-2">
+            <Label htmlFor="name">Product Name *</Label>
+            <Input
+              id="name"
+              name="name"
+              defaultValue={product?.name || ""}
+              placeholder="Product name"
+              required
             />
           </div>
 
-          <select
-            value={status}
-            disabled={stock === 0}
-            onChange={(e) => setStatus(e.target.value as any)}
-            className="w-full border p-2 rounded"
-          >
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
+          {/* Description */}
+          <div className="space-y-2">
+            <Label htmlFor="description">Description</Label>
+            <Textarea
+              id="description"
+              name="description"
+              defaultValue={product?.description || ""}
+              placeholder="Product description"
+              rows={3}
+            />
+          </div>
 
-          <select
-            value={parent}
-            onChange={(e) => setParent(e.target.value)}
-            className="w-full border p-2 rounded"
-            required
-          >
-            <option value="">Select Parent Category</option>
-            {parents.map((c) => (
-              <option key={c._id} value={c._id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={subcategory}
-            onChange={(e) => setSubcategory(e.target.value)}
-            className="w-full border p-2 rounded"
-            required
-            disabled={!parent}
-          >
-            <option value="">Select Subcategory</option>
-            {subs.map((c) => (
-              <option key={c._id} value={c._id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-
-          {/* EXISTING IMAGE */}
-          {existingImage && !removeExistingImage && (
-            <div>
-              <p className="text-xs mb-1">Current image</p>
-              <img
-                src={existingImage}
-                className="h-20 w-20 object-cover rounded border"
+          {/* Price and Stock */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="price">Price ($) *</Label>
+              <Input
+                id="price"
+                name="price"
+                type="number"
+                step="0.01"
+                min="0"
+                defaultValue={product?.price || ""}
+                placeholder="0.00"
+                required
               />
-              <button
-                type="button"
-                onClick={() => setRemoveExistingImage(true)}
-                className="text-xs text-red-600 mt-1"
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="stock">Stock Quantity</Label>
+              <Input
+                id="stock"
+                type="number"
+                min={0}
+                value={stock}
+                onChange={(e) =>
+                  setStock(e.target.value === "" ? "" : Number(e.target.value))
+                }
+              />
+            </div>
+          </div>
+
+          {/* Status */}
+          <div className="space-y-2">
+            <Label>Status</Label>
+            <Select
+              value={status}
+              onValueChange={(val) => setStatus(val as "active" | "inactive")}
+              disabled={stock === 0}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+            {stock === 0 && (
+              <p className="text-xs text-amber-600">
+                Product is automatically inactive when stock is 0
+              </p>
+            )}
+          </div>
+
+          {/* Category Selection */}
+          <div className="space-y-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+            <h3 className="font-medium text-sm text-gray-700 dark:text-gray-300">
+              Product Category
+            </h3>
+
+            {/* Parent Category */}
+            <div className="space-y-2">
+              <Label>Parent Category *</Label>
+              <Select
+                value={parentId}
+                onValueChange={setParentId}
+                disabled={parentsLoading}
               >
-                Remove image
-              </button>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select parent category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {parents.map((cat) => (
+                    <SelectItem key={cat._id} value={cat._id}>
+                      {cat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          )}
 
-          {/* UPLOAD NEW IMAGES */}
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={(e) => handleImages(e.target.files)}
-          />
-
-          {/* PREVIEW NEW IMAGES */}
-          {previews.length > 0 && (
-            <div className="flex gap-2 flex-wrap">
-              {previews.map((src, i) => (
-                <div key={i} className="relative">
-                  <img
-                    src={src}
-                    className="h-20 w-20 object-cover rounded border"
+            {/* Subcategory */}
+            <div className="space-y-2">
+              <Label>Subcategory *</Label>
+              <Select
+                value={subcategoryId}
+                onValueChange={setSubcategoryId}
+                disabled={!parentId || subcategoriesLoading}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      !parentId
+                        ? "Select parent category first"
+                        : subcategoriesLoading
+                        ? "Loading..."
+                        : "Select subcategory"
+                    }
                   />
-                  <button
-                    type="button"
-                    onClick={() => removeNewImage(i)}
-                    className="absolute -top-2 -right-2 bg-red-600 text-white text-xs rounded-full px-1"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
+                </SelectTrigger>
+                <SelectContent>
+                  {subcategories.length === 0 && parentId ? (
+                    <div className="px-2 py-4 text-sm text-gray-500 text-center">
+                      No subcategories found.
+                      <br />
+                      Create one in Categories first.
+                    </div>
+                  ) : (
+                    subcategories.map((cat) => (
+                      <SelectItem key={cat._id} value={cat._id}>
+                        {cat.name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-500">
+                Products must be assigned to a subcategory
+              </p>
+            </div>
+          </div>
+
+          {/* Existing Images */}
+          {existingImages.length > 0 && (
+            <div className="space-y-2">
+              <Label>Current Images ({existingImages.filter(img => !imagesToRemove.includes(img)).length})</Label>
+              <div className="flex gap-2 flex-wrap">
+                {existingImages.map((img, index) => (
+                  !imagesToRemove.includes(img) && (
+                    <div key={index} className="relative">
+                      <img
+                        src={img}
+                        alt={`Product image ${index + 1}`}
+                        className="h-24 w-24 object-cover rounded-lg border"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setImagesToRemove(prev => [...prev, img])}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                      >
+                        <X size={14} />
+                      </button>
+                      {index === 0 && !imagesToRemove.includes(existingImages[0]) && (
+                        <span className="absolute bottom-1 left-1 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded">
+                          Primary
+                        </span>
+                      )}
+                    </div>
+                  )
+                ))}
+              </div>
+              {imagesToRemove.length > 0 && (
+                <p className="text-xs text-amber-600">
+                  {imagesToRemove.length} image(s) will be removed on save
+                </p>
+              )}
             </div>
           )}
 
-          <Button disabled={loading} className="w-full">
+          {/* Upload New Images */}
+          <div className="space-y-2">
+            <Label>Product Images</Label>
+            <div className="border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(e) => handleImages(e.target.files)}
+                className="hidden"
+                id="product-images"
+              />
+              <label htmlFor="product-images" className="cursor-pointer">
+                <Upload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  Click to upload images
+                </span>
+              </label>
+            </div>
+
+            {/* Preview New Images */}
+            {previews.length > 0 && (
+              <div className="flex gap-2 flex-wrap mt-2">
+                {previews.map((src, i) => (
+                  <div key={i} className="relative">
+                    <img
+                      src={src}
+                      alt={`Preview ${i + 1}`}
+                      className="h-20 w-20 object-cover rounded-lg border"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeNewImage(i)}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Submit */}
+          <Button type="submit" disabled={loading} className="w-full">
             {loading
               ? product
                 ? "Updating..."
@@ -292,4 +471,3 @@ export default function AddProductDialog({
     </Dialog>
   );
 }
-

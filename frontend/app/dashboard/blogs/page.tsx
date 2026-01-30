@@ -5,11 +5,10 @@ import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "@/redux/store";
 import { getMyBlogs, deleteBlog } from "@/redux/features/blogSlice";
 import { useToast } from "@/components/ui/use-toast";
-import BlogCardSkeleton from "@/components/BlogCardSkeleton";
-
+import { PlusCircle } from "lucide-react";
 
 import BlogCard from "@/components/BlogCard";
-import Sidebar from "@/components/dashboard/Sidebar";
+import BlogCardSkeleton from "@/components/BlogCardSkeleton";
 import CreateBlogDialog from "@/components/dashboard/CreateBlogDialog";
 
 import {
@@ -44,82 +43,79 @@ export default function MyBlogsPage() {
     await dispatch(deleteBlog(deleteId));
 
     toast({
-      title: "Blog Deleted 🗑️",
+      title: "Blog Deleted",
       description: "Your blog has been deleted successfully.",
     });
 
     setDeleteId(null);
   };
 
-//   if (loading) {
-//     return (
-//       <div className="min-h-screen flex bg-gray-100 dark:bg-gray-900">
-//         <Sidebar />
-//         <main className="flex-1 p-10 flex items-center justify-center">
-//           <p className="text-gray-500">Loading blogs...</p>
-//         </main>
-//       </div>
-//     );
-//   }
-if (loading) {
   return (
-    <div className="min-h-screen flex bg-gray-100 dark:bg-gray-900">
-      <Sidebar />
-      <main className="flex-1 p-10">
+    <div className="p-6 lg:p-10">
+      {/* Header */}
+      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">
+            My Blogs
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
+            Manage, edit, and publish your content
+          </p>
+        </div>
+
+        <CreateBlogDialog>
+          <button className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm">
+            <PlusCircle size={20} />
+            New Blog
+          </button>
+        </CreateBlogDialog>
+      </header>
+
+      {/* Loading State */}
+      {loading && (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {[...Array(6)].map((_, i) => (
             <BlogCardSkeleton key={i} />
           ))}
         </div>
-      </main>
-    </div>
-  );
-}
+      )}
 
+      {/* Error State */}
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <p className="text-red-600 dark:text-red-400">{error}</p>
+        </div>
+      )}
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex bg-gray-100 dark:bg-gray-900">
-        <Sidebar />
-        <main className="flex-1 p-10 flex items-center justify-center">
-          <p className="text-red-500">{error}</p>
-        </main>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen flex bg-gray-100 dark:bg-gray-900">
-      <Sidebar />
-
-      <main className="flex-1 p-10">
-        <header className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            My Blogs
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Manage, edit, and publish your content
+      {/* Empty State */}
+      {!loading && !error && blogs.length === 0 && (
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-10 text-center">
+          <p className="text-gray-600 dark:text-gray-400 mb-4">
+            You haven't created any blogs yet.
           </p>
-        </header>
+          <CreateBlogDialog>
+            <button className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+              <PlusCircle size={18} />
+              Create Your First Blog
+            </button>
+          </CreateBlogDialog>
+        </div>
+      )}
 
-        {blogs.length === 0 ? (
-          <div className="bg-white dark:bg-gray-800 border rounded-xl p-10 text-center">
-            <p className="text-gray-600">You haven’t created any blogs yet.</p>
-          </div>
-        ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {blogs.map((blog: any) => (
-              <BlogCard
-                key={blog._id}
-                blog={blog}
-                canEdit
-                onEdit={(b) => setEditingBlog(b)}
-                onDelete={(id) => setDeleteId(id)} // ✅ OPEN DIALOG
-              />
-            ))}
-          </div>
-        )}
-      </main>
+      {/* Blog Grid */}
+      {!loading && !error && blogs.length > 0 && (
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {blogs.map((blog: any) => (
+            <BlogCard
+              key={blog._id}
+              blog={blog}
+              canEdit
+              onEdit={(b) => setEditingBlog(b)}
+              onDelete={(id) => setDeleteId(id)}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Edit Dialog */}
       {editingBlog && (
@@ -157,4 +153,3 @@ if (loading) {
     </div>
   );
 }
-

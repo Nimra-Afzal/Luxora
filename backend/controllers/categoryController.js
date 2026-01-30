@@ -40,6 +40,60 @@ export async function getCategoriesPublic(req, res) {
 }
 
 /**
+ * PUBLIC: Get parent categories only
+ */
+export async function getParentCategoriesPublic(req, res) {
+  try {
+    const categories = await categoryService.getParentCategories({ admin: false });
+    res.json(categories);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch parent categories" });
+  }
+}
+
+/**
+ * PUBLIC: Get subcategories of a parent
+ */
+export async function getSubcategoriesPublic(req, res) {
+  try {
+    const { parentId } = req.params;
+    const subcategories = await categoryService.getSubcategories(parentId, { admin: false });
+    res.json(subcategories);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch subcategories" });
+  }
+}
+
+/**
+ * ADMIN: Get parent categories
+ */
+export async function getParentCategoriesAdmin(req, res) {
+  try {
+    const categories = await categoryService.getParentCategories({ admin: true });
+    res.json(categories);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch parent categories" });
+  }
+}
+
+/**
+ * ADMIN: Get subcategories of a parent
+ */
+export async function getSubcategoriesAdmin(req, res) {
+  try {
+    const { parentId } = req.params;
+    const subcategories = await categoryService.getSubcategories(parentId, { admin: true });
+    res.json(subcategories);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch subcategories" });
+  }
+}
+
+/**
  * PUBLIC: Category by ID
  */
 export async function getCategoryById(req, res) {
@@ -149,6 +203,18 @@ export async function getAllCategoriesAdmin(req, res) {
   }
 }
 
+/**
+ * ADMIN: Get category statistics
+ */
+export async function getCategoryStats(req, res) {
+  try {
+    const stats = await categoryService.getCategoryStats();
+    res.json(stats);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch category statistics" });
+  }
+}
 
 /**
  * PUBLIC: Category breadcrumb (by slug)
@@ -166,5 +232,3 @@ export async function getCategoryBreadcrumb(req, res) {
       .json({ error: err.message || "Failed to generate breadcrumb" });
   }
 }
-
-
