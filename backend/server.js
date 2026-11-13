@@ -17,6 +17,12 @@ import categoryRoutes from "./routes/categoryRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 import cartRoutes from "./routes/cartRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
+import addressRoutes from "./routes/addressRoutes.js";
+import shippingRoutes from "./routes/shippingRoutes.js";
+import taxRoutes from "./routes/taxRoutes.js";
+import checkoutRoutes from "./routes/checkoutRoutes.js";
+import orderRoutes from "./routes/orderRoutes.js";
+import { handleStripeWebhook } from "./controllers/stripeWebhookController.js";
 
 
 
@@ -24,6 +30,12 @@ import userRoutes from "./routes/userRoutes.js";
 
 
 const app = express();
+// Stripe webhook must receive the raw body for signature verification.
+app.post(
+  "/api/v1/webhooks/stripe",
+  express.raw({ type: "application/json" }),
+  handleStripeWebhook
+);
 
 // Middleware
 app.use(express.json());
@@ -55,6 +67,12 @@ app.use("/api/v1/categories", categoryRoutes);
 // app.use("/api/v1", uploadRoutes);
 app.use("/api/v1/reviews", reviewRoutes);
 app.use("/api/v1/cart", cartRoutes);
+app.use("/api/v1/addresses", addressRoutes);
+app.use("/api/v1/shipping", shippingRoutes);
+app.use("/api/v1/tax", taxRoutes);
+app.use("/api/v1/checkout", checkoutRoutes);
+app.use("/api/v1/orders", orderRoutes);
+
 
 
 
