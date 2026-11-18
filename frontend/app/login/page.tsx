@@ -32,9 +32,9 @@ export default function LoginPage() {
 
   const { loading, error } = useSelector((state: RootState) => state.auth);
 
-  useEffect(() => {
-    dispatch(setUserFromStorage());
-  }, [dispatch]);
+  // useEffect(() => {
+  //   dispatch(setUserFromStorage());
+  // }, [dispatch]);
 
   const onSubmit = async (data: LoginForm) => {
     setLocalError(null);

@@ -46,10 +46,24 @@ interface Category {
 export default function Navbar() {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
-  const { user, isAuthenticated } = useSelector((state: RootState) => state.auth);
+  const { user, isAuthenticated } = useSelector(
+    (state: RootState) => state.auth,
+  );
   const themeMode = useSelector((state: RootState) => state.theme.mode);
   const cartItems = useSelector((state: RootState) => state.cart.items);
-  const cartCount = cartItems.reduce((sum: number, item: CartItem) => sum + item.quantity, 0);
+  const cartCount = cartItems.reduce(
+    (sum: number, item: CartItem) => sum + item.quantity,
+    0,
+  );
+  const wishlistItems = useSelector((state: RootState) => state.wishlist.items);
+  const wishlistCount = wishlistItems.length;
+
+  // 🔥 Hydration Fix
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -90,8 +104,12 @@ export default function Navbar() {
         <div className="max-w-7xl mx-auto px-4 flex items-center justify-between">
           <p>Free shipping on orders over $50</p>
           <div className="flex items-center gap-4">
-            <Link href="/about" className="hover:text-blue-400 transition">About</Link>
-            <Link href="/contact" className="hover:text-blue-400 transition">Contact</Link>
+            <Link href="/about" className="hover:text-blue-400 transition">
+              About
+            </Link>
+            <Link href="/contact" className="hover:text-blue-400 transition">
+              Contact
+            </Link>
           </div>
         </div>
       </div>
@@ -111,7 +129,10 @@ export default function Navbar() {
 
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center gap-8">
-            <Link href="/" className="text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition">
+            <Link
+              href="/"
+              className="text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition"
+            >
               Home
             </Link>
 
@@ -123,7 +144,10 @@ export default function Navbar() {
             >
               <button className="flex items-center gap-1 text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition py-2">
                 Categories
-                <ChevronDown size={16} className={`transition-transform ${showCategories ? "rotate-180" : ""}`} />
+                <ChevronDown
+                  size={16}
+                  className={`transition-transform ${showCategories ? "rotate-180" : ""}`}
+                />
               </button>
 
               {/* Mega Menu */}
@@ -132,34 +156,37 @@ export default function Navbar() {
                   {/* Invisible bridge to prevent gap */}
                   <div className="absolute top-0 left-0 w-full h-2" />
                   <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 grid grid-cols-3 gap-6">
-                  {categories.length > 0 ? (
-                    categories.map((cat) => (
-                      <div key={cat._id}>
-                        <Link
-                          href={`/products?category=${cat.slug}`}
-                          className="font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 block mb-3"
-                        >
-                          {cat.name}
-                        </Link>
-                        {cat.subcategories && cat.subcategories.length > 0 && (
-                          <ul className="space-y-2">
-                            {cat.subcategories.map((sub) => (
-                              <li key={sub._id}>
-                                <Link
-                                  href={`/products?category=${sub.slug}`}
-                                  className="text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition"
-                                >
-                                  {sub.name}
-                                </Link>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-gray-500 col-span-3 text-center py-4">No categories available</p>
-                  )}
+                    {categories.length > 0 ? (
+                      categories.map((cat) => (
+                        <div key={cat._id}>
+                          <Link
+                            href={`/products?category=${cat.slug}`}
+                            className="font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 block mb-3"
+                          >
+                            {cat.name}
+                          </Link>
+                          {cat.subcategories &&
+                            cat.subcategories.length > 0 && (
+                              <ul className="space-y-2">
+                                {cat.subcategories.map((sub) => (
+                                  <li key={sub._id}>
+                                    <Link
+                                      href={`/products?category=${sub.slug}`}
+                                      className="text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition"
+                                    >
+                                      {sub.name}
+                                    </Link>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-gray-500 col-span-3 text-center py-4">
+                        No categories available
+                      </p>
+                    )}
                     <div className="col-span-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                       <Link
                         href="/products"
@@ -173,15 +200,24 @@ export default function Navbar() {
               )}
             </div>
 
-            <Link href="/products" className="text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition">
+            <Link
+              href="/products"
+              className="text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition"
+            >
               Shop
             </Link>
 
-            <Link href="/about" className="text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition">
+            <Link
+              href="/about"
+              className="text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition"
+            >
               About
             </Link>
 
-            <Link href="/contact" className="text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition">
+            <Link
+              href="/contact"
+              className="text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition"
+            >
               Contact
             </Link>
           </nav>
@@ -198,7 +234,10 @@ export default function Navbar() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-64 pl-10 bg-gray-100 dark:bg-gray-800 border-0 focus:ring-2 focus:ring-blue-500"
                 />
-                <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Search
+                  size={18}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                />
               </form>
             </div>
 
@@ -222,16 +261,34 @@ export default function Navbar() {
               {themeMode === "dark" ? <Sun size={20} /> : <Moon size={20} />}
             </Button>
 
-            {/* Wishlist */}
+            {/* Wishlist
             <Button variant="ghost" size="icon" className="hidden sm:flex text-gray-600 dark:text-gray-300">
               <Heart size={20} />
-            </Button>
+            </Button> */}
+            <Link href="/wishlist">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative hidden sm:flex text-gray-600 dark:text-gray-300"
+              >
+                <Heart size={20} />
+                {mounted && wishlistCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                    {wishlistCount > 99 ? "99+" : wishlistCount}
+                  </span>
+                )}
+              </Button>
+            </Link>
 
             {/* Cart */}
             <Link href="/cart">
-              <Button variant="ghost" size="icon" className="relative text-gray-600 dark:text-gray-300">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative text-gray-600 dark:text-gray-300"
+              >
                 <ShoppingCart size={20} />
-                {cartCount > 0 && (
+                {mounted && cartCount > 0 && (
                   <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
                     {cartCount > 99 ? "99+" : cartCount}
                   </span>
@@ -254,23 +311,36 @@ export default function Navbar() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
                   <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-700">
-                    <p className="font-medium text-gray-900 dark:text-white">{user?.username}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user?.email}</p>
+                    <p className="font-medium text-gray-900 dark:text-white">
+                      {user?.username}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                      {user?.email}
+                    </p>
                   </div>
                   <DropdownMenuItem asChild>
-                    <Link href="/dashboard" className="flex items-center gap-2 cursor-pointer">
+                    <Link
+                      href="/dashboard"
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
                       <LayoutDashboard size={16} />
                       Dashboard
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link href="/dashboard/profile" className="flex items-center gap-2 cursor-pointer">
+                    <Link
+                      href="/dashboard/profile"
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
                       <User size={16} />
                       Profile
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout} className="text-red-600 cursor-pointer">
+                  <DropdownMenuItem
+                    onClick={handleLogout}
+                    className="text-red-600 cursor-pointer"
+                  >
                     <LogOut size={16} className="mr-2" />
                     Logout
                   </DropdownMenuItem>
@@ -279,10 +349,14 @@ export default function Navbar() {
             ) : (
               <div className="hidden sm:flex items-center gap-2">
                 <Link href="/login">
-                  <Button variant="ghost" size="sm">Sign In</Button>
+                  <Button variant="ghost" size="sm">
+                    Sign In
+                  </Button>
                 </Link>
                 <Link href="/signup">
-                  <Button size="sm" className="bg-blue-600 hover:bg-blue-700">Sign Up</Button>
+                  <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+                    Sign Up
+                  </Button>
                 </Link>
               </div>
             )}
@@ -311,7 +385,10 @@ export default function Navbar() {
                 className="w-full pl-10"
                 autoFocus
               />
-              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <Search
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+              />
             </form>
           </div>
         )}
@@ -338,7 +415,9 @@ export default function Navbar() {
 
             {/* Mobile Categories */}
             <div className="px-4 py-3">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Categories</p>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                Categories
+              </p>
               <div className="space-y-1 ml-2">
                 {categories.map((cat) => (
                   <Link
@@ -371,10 +450,14 @@ export default function Navbar() {
             {!isAuthenticated && (
               <div className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
                 <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="outline" className="w-full">Sign In</Button>
+                  <Button variant="outline" className="w-full">
+                    Sign In
+                  </Button>
                 </Link>
                 <Link href="/signup" onClick={() => setMobileMenuOpen(false)}>
-                  <Button className="w-full bg-blue-600 hover:bg-blue-700">Sign Up</Button>
+                  <Button className="w-full bg-blue-600 hover:bg-blue-700">
+                    Sign Up
+                  </Button>
                 </Link>
               </div>
             )}
